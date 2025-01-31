@@ -6,7 +6,7 @@ export const useLive2dSettings = () => {
 
   const initialModelInfo: ModelInfo = {
     url: '',
-    kScale: 0.000625,
+    kScale: 0.5,
     initialXshift: 0,
     initialYshift: 0,
     emotionMap: {},
