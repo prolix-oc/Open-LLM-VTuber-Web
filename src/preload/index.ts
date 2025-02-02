@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/ban-ts-comment */
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, desktopCapturer } from 'electron';
 import { electronAPI } from '@electron-toolkit/preload';
 import { ConfigFile } from '../main/menu-manager';
 
@@ -50,7 +50,20 @@ const api = {
 
 if (process.contextIsolated) {
   try {
-    contextBridge.exposeInMainWorld('electron', electronAPI);
+    contextBridge.exposeInMainWorld('electron', {
+      ...electronAPI,
+      desktopCapturer: {
+        getSources: (options) => desktopCapturer.getSources(options),
+      },
+      ipcRenderer: {
+        invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args),
+        on: (channel, func) => ipcRenderer.on(channel, func),
+        once: (channel, func) => ipcRenderer.once(channel, func),
+        removeListener: (channel, func) => ipcRenderer.removeListener(channel, func),
+        removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel),
+        send: (channel, ...args) => ipcRenderer.send(channel, ...args),
+      },
+    });
     contextBridge.exposeInMainWorld('api', api);
   } catch (error) {
     console.error(error);

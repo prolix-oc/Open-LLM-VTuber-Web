@@ -18,11 +18,36 @@ export function ScreenCaptureProvider({ children }: { children: ReactNode }) {
 
   const startCapture = async () => {
     try {
-      const displayMediaOptions: DisplayMediaStreamOptions = {
-        video: true,
-        audio: false,
-      };
-      const mediaStream = await navigator.mediaDevices.getDisplayMedia(displayMediaOptions);
+      let mediaStream: MediaStream;
+
+      if (window.electron) {
+        const sourceId = await window.electron.ipcRenderer.invoke('get-screen-capture');
+
+        const displayMediaOptions: DisplayMediaStreamOptions = {
+          video: {
+            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+            // @ts-expect-error
+            mandatory: {
+              chromeMediaSource: "desktop",
+              chromeMediaSourceId: sourceId,
+              minWidth: 1280,
+              maxWidth: 1280,
+              minHeight: 720,
+              maxHeight: 720,
+            },
+          },
+          audio: false,
+        };
+
+        mediaStream = await navigator.mediaDevices.getUserMedia(displayMediaOptions);
+      } else {
+        const displayMediaOptions: DisplayMediaStreamOptions = {
+          video: true,
+          audio: false,
+        };
+        mediaStream = await navigator.mediaDevices.getDisplayMedia(displayMediaOptions);
+      }
+
       setStream(mediaStream);
       setIsStreaming(true);
       setError('');

@@ -11,13 +11,12 @@ export const resetModelPosition = (
   model: Live2DModel,
   width: number,
   height: number,
-  modelInfo: ModelInfo | undefined,
+  initialXshift: number | undefined,
+  initialYshift: number | undefined,
 ) => {
-  if (!model || !modelInfo) return;
-
-  const initXshift = Number(modelInfo?.initialXshift || 0);
-  const initYshift = Number(modelInfo?.initialYshift || 0);
-
+  if (!model) return;
+  const initXshift = Number(initialXshift || 0);
+  const initYshift = Number(initialYshift || 0);
   const targetX = (width - model.width) / 2 + initXshift;
   const targetY = (height - model.height) / 2 + initYshift;
 
@@ -119,7 +118,7 @@ export const useLive2DResize = (
         // Resize renderer and reset model position
         appRef.current.renderer.resize(width, height);
         appRef.current.renderer.clear();
-        resetModelPosition(modelRef.current, width, height, modelInfo);
+        resetModelPosition(modelRef.current, width, height, modelInfo?.initialXshift, modelInfo?.initialYshift);
       }
     });
 

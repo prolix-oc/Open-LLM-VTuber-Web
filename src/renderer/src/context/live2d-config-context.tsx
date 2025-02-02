@@ -44,16 +44,19 @@ export interface ModelInfo {
   url: string;
 
   /** Scale factor */
-  kScale: number | string;
+  kScale: number;
 
   /** Initial X position shift */
-  initialXshift: number | string;
+  initialXshift: number;
 
   /** Initial Y position shift */
-  initialYshift: number | string;
+  initialYshift: number;
 
   /** Idle motion group name */
   idleMotionGroupName?: string;
+
+  /** Default emotion */
+  defaultEmotion?: number | string;
 
   /** Emotion mapping configuration */
   emotionMap: EmotionMap;

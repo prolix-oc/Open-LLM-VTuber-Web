@@ -45,7 +45,7 @@ export class WindowManager {
     });
   }
 
-  createWindow(p0: { titleBarOverlay: { color: string; symbolColor: string; height: number; }; }): BrowserWindow {
+  createWindow(options: Electron.BrowserWindowConstructorOptions): BrowserWindow {
     this.window = new BrowserWindow({
       width: 900,
       height: 670,
@@ -66,6 +66,7 @@ export class WindowManager {
       },
       hasShadow: false,
       paintWhenInitiallyHidden: true,
+      ...options,
     });
 
     this.setupWindowEvents();

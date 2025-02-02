@@ -1,5 +1,5 @@
 /* eslint-disable no-shadow */
-import { app, ipcMain, globalShortcut } from "electron";
+import { app, ipcMain, globalShortcut, desktopCapturer } from "electron";
 import { electronApp, optimizer } from "@electron-toolkit/utils";
 import { WindowManager } from "./window-manager";
 import { MenuManager } from "./menu-manager";
@@ -56,6 +56,11 @@ function setupIPC(): void {
   ipcMain.on("update-config-files", (_event, files) => {
     menuManager.updateConfigFiles(files);
   });
+
+  ipcMain.handle('get-screen-capture', async () => {
+    const sources = await desktopCapturer.getSources({ types: ['screen'] });
+    return sources[0].id;
+  });
 }
 
 app.whenReady().then(() => {
@@ -81,18 +86,18 @@ app.whenReady().then(() => {
     return false;
   });
 
-  // if (process.env.NODE_ENV === "development") {
-  //   globalShortcut.register("F12", () => {
-  //     const window = windowManager.getWindow();
-  //     if (!window) return;
+  if (process.env.NODE_ENV === "development") {
+    globalShortcut.register("F12", () => {
+      const window = windowManager.getWindow();
+      if (!window) return;
 
-  //     if (window.webContents.isDevToolsOpened()) {
-  //       window.webContents.closeDevTools();
-  //     } else {
-  //       window.webContents.openDevTools();
-  //     }
-  //   });
-  // }
+      if (window.webContents.isDevToolsOpened()) {
+        window.webContents.closeDevTools();
+      } else {
+        window.webContents.openDevTools();
+      }
+    });
+  }
 
   setupIPC();
 
@@ -105,6 +110,16 @@ app.whenReady().then(() => {
 
   app.on("browser-window-created", (_, window) => {
     optimizer.watchWindowShortcuts(window);
+  });
+
+  app.on('web-contents-created', (_, contents) => {
+    contents.session.setPermissionRequestHandler((webContents, permission, callback) => {
+      if (permission === 'media') {
+        callback(true);
+      } else {
+        callback(false);
+      }
+    });
   });
 });
 

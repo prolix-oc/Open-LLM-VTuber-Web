@@ -146,7 +146,7 @@ export const useLive2DModel = ({
         height: 0,
       };
 
-    resetModelPosition(modelRef.current, width, height, modelInfo);
+    resetModelPosition(modelRef.current, width, height, modelInfo?.initialXshift, modelInfo?.initialYshift);
   }, [modelInfo?.initialXshift, modelInfo?.initialYshift]);
 
   // Load Live2D model with configuration
@@ -297,9 +297,16 @@ export const useLive2DModel = ({
   // Reset expression when AI state changes to IDLE (like finishing a conversation)
   useEffect(() => {
     if (aiState === AiStateEnum.IDLE) {
-      modelRef.current?.internalModel.motionManager.expressionManager?.resetExpression();
+      console.log("defaultEmotion: ", modelInfo?.defaultEmotion);
+      if (modelInfo?.defaultEmotion) {
+        modelRef.current?.internalModel.motionManager.expressionManager?.setExpression(
+          modelInfo.defaultEmotion,
+        );
+      } else {
+        modelRef.current?.internalModel.motionManager.expressionManager?.resetExpression();
+      }
     }
-  }, [aiState]);
+  }, [modelRef.current, aiState, modelInfo?.defaultEmotion]);
 
   // Load model when URL changes and cleanup on unmount
   useEffect(() => {
