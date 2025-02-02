@@ -15,8 +15,10 @@ function ASR({ onSave, onCancel }: ASRProps): JSX.Element {
     localSettings,
     autoStopMic,
     autoStartMicOn,
+    autoStartMicOnConvEnd,
     setAutoStopMic,
     setAutoStartMicOn,
+    setAutoStartMicOnConvEnd,
     handleInputChange,
     handleSave,
     handleCancel,
@@ -40,6 +42,12 @@ function ASR({ onSave, onCancel }: ASRProps): JSX.Element {
         label="Auto Stop Mic When AI Start Speaking"
         checked={autoStopMic}
         onChange={setAutoStopMic}
+      />
+
+      <SwitchField
+        label="Auto Start Mic When Conversation End"
+        checked={autoStartMicOnConvEnd}
+        onChange={setAutoStartMicOnConvEnd}
       />
 
       <SwitchField

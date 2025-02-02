@@ -25,6 +25,8 @@
   },
   "dependencies": {
     "@chakra-ui/react": "^3.2.3",
+    "@chatscope/chat-ui-kit-react": "^2.0.3",
+    "@chatscope/chat-ui-kit-styles": "^1.4.0",
     "@electron-toolkit/preload": "^3.0.1",
     "@electron-toolkit/utils": "^3.0.0",
     "@emotion/react": "^11.14.0",

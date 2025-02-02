@@ -66,6 +66,12 @@ interface VADState {
 
   /** Set auto start microphone state */
   setAutoStartMicOn: (value: boolean) => void;
+
+  /** Auto start microphone when conversation ends */
+  autoStartMicOnConvEnd: boolean;
+
+  /** Set auto start microphone when conversation ends state */
+  setAutoStartMicOnConvEnd: (value: boolean) => void;
 }
 
 /**
@@ -81,6 +87,7 @@ const DEFAULT_VAD_STATE = {
   micOn: false,
   autoStopMic: false,
   autoStartMicOn: false,
+  autoStartMicOnConvEnd: false,
 };
 
 /**
@@ -116,6 +123,11 @@ export function VADProvider({ children }: { children: React.ReactNode }) {
     DEFAULT_VAD_STATE.autoStartMicOn,
   );
   const autoStartMicRef = useRef(false);
+  const [autoStartMicOnConvEnd, setAutoStartMicOnConvEndState] = useLocalStorage(
+    'autoStartMicOnConvEnd',
+    DEFAULT_VAD_STATE.autoStartMicOnConvEnd,
+  );
+  const autoStartMicOnConvEndRef = useRef(false);
 
   // Force update mechanism for ref updates
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
@@ -162,6 +174,10 @@ export function VADProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     autoStartMicRef.current = autoStartMicOn;
+  }, []);
+
+  useEffect(() => {
+    autoStartMicOnConvEndRef.current = autoStartMicOnConvEnd;
   }, []);
 
   /**
@@ -313,6 +329,12 @@ export function VADProvider({ children }: { children: React.ReactNode }) {
     forceUpdate();
   }, []);
 
+  const setAutoStartMicOnConvEnd = useCallback((value: boolean) => {
+    autoStartMicOnConvEndRef.current = value;
+    setAutoStartMicOnConvEndState(value);
+    forceUpdate();
+  }, []);
+
   // Memoized context value
   const contextValue = useMemo(
     () => ({
@@ -328,6 +350,8 @@ export function VADProvider({ children }: { children: React.ReactNode }) {
       updateSettings,
       autoStartMicOn: autoStartMicRef.current,
       setAutoStartMicOn,
+      autoStartMicOnConvEnd: autoStartMicOnConvEndRef.current,
+      setAutoStartMicOnConvEnd,
     }),
     [
       micOn,

@@ -13,7 +13,7 @@ interface ChatHistoryState {
   historyList: HistoryInfo[];
   currentHistoryUid: string | null;
   appendHumanMessage: (content: string) => void;
-  appendAIMessage: (content: string) => void;
+  appendAIMessage: (content: string, name?: string, avatar?: string) => void;
   setMessages: (messages: Message[]) => void;
   setHistoryList: (
     value: HistoryInfo[] | ((prev: HistoryInfo[]) => HistoryInfo[])
@@ -77,36 +77,34 @@ export function ChatHistoryProvider({ children }: { children: React.ReactNode })
    * Append or update an AI message in the chat history
    * @param content - Message content
    */
-  const appendAIMessage = useCallback((content: string) => {
+  const appendAIMessage = useCallback((content: string, name?: string, avatar?: string) => {
     setMessages((prevMessages) => {
       const lastMessage = prevMessages[prevMessages.length - 1];
 
-      if (lastMessage && lastMessage.role === 'ai' && !forceNewMessage) {
-        // Update existing AI message with new ID to trigger re-render
-        const updatedMessage = {
-          ...lastMessage,
-          content: lastMessage.content + content,
+      // If forceNewMessage is true or last message is not from AI, create new message
+      if (forceNewMessage || !lastMessage || lastMessage.role !== 'ai') {
+        setForceNewMessage(false); // Reset the flag
+        return [...prevMessages, {
           id: Date.now().toString(),
-        };
-        const updatedMessages = [...prevMessages];
-        updatedMessages[updatedMessages.length - 1] = updatedMessage;
-        return updatedMessages;
+          content,
+          role: 'ai',
+          timestamp: new Date().toISOString(),
+          name,
+          avatar,
+        }];
       }
 
-      // Create new AI message
-      const newMessage: Message = {
-        id: Date.now().toString(),
-        content,
-        role: 'ai',
-        timestamp: new Date().toISOString(),
-      };
-      return [...prevMessages, newMessage];
+      // Otherwise, merge with last AI message
+      return [
+        ...prevMessages.slice(0, -1),
+        {
+          ...lastMessage,
+          content: lastMessage.content + content,
+          timestamp: new Date().toISOString(),
+        },
+      ];
     });
-
-    if (forceNewMessage) {
-      setForceNewMessage(false);
-    }
-  }, [forceNewMessage]);
+  }, [forceNewMessage, setForceNewMessage]);
 
   /**
    * Update the history list with the latest message

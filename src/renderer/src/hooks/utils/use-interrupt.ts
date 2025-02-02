@@ -11,13 +11,16 @@ export const useInterrupt = () => {
   const { fullResponse, clearResponse } = useChatHistory();
   const { currentModel } = useLive2DModel();
   const { subtitleText, setSubtitleText } = useSubtitle();
-  const interrupt = () => {
+
+  const interrupt = (sendSignal = true) => {
     if (aiState !== 'thinking-speaking') return;
     console.log('Interrupting conversation chain');
-    sendMessage({
-      type: 'interrupt-signal',
-      text: fullResponse,
-    });
+    if (sendSignal) {
+      sendMessage({
+        type: 'interrupt-signal',
+        text: fullResponse,
+      });
+    }
     setAiState('interrupted');
     audioTaskQueue.clearQueue();
     if (currentModel) {

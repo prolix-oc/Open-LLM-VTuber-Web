@@ -5,9 +5,24 @@ import { HistoryInfo } from '@/context/websocket-context';
 import { ConfigFile } from '@/context/character-config-context';
 import { toaster } from '@/components/ui/toaster';
 
+export interface DisplayText {
+  text: string;
+  name: string;
+  avatar: string;
+}
+
 interface BackgroundFile {
   name: string;
   url: string;
+}
+
+export interface AudioPayload {
+  type: 'audio';
+  audio?: string;
+  volumes?: number[];
+  slice_length?: number;
+  display_text?: DisplayText;
+  actions?: Actions;
 }
 
 export interface Message {
@@ -15,6 +30,8 @@ export interface Message {
   content: string;
   role: "ai" | "human";
   timestamp: string;
+  name?: string;
+  avatar?: string;
 }
 
 export interface Actions {
@@ -41,6 +58,11 @@ export interface MessageEvent {
   histories?: HistoryInfo[];
   configs?: ConfigFile[];
   message?: string;
+  members?: string[];
+  is_owner?: boolean;
+  client_uid?: string;
+  forwarded?: boolean;
+  display_text?: DisplayText;
 }
 
 class WebSocketService {

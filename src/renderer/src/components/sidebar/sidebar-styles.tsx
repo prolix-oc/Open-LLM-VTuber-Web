@@ -1,3 +1,5 @@
+import { css } from '@emotion/react';
+
 const isElectron = window.api !== undefined;
 
 const commonStyles = {
@@ -337,4 +339,148 @@ export const sidebarStyles = {
       },
     },
   },
+
+  groupDrawer: {
+    section: {
+      mb: 6,
+    },
+    sectionTitle: {
+      fontSize: 'lg',
+      fontWeight: 'semibold',
+      color: 'white',
+      mb: 3,
+    },
+    inviteBox: {
+      display: 'flex',
+      gap: 2,
+    },
+    input: {
+      bg: 'whiteAlpha.100',
+      border: 'none',
+      color: 'white',
+      _placeholder: {
+        color: 'whiteAlpha.400',
+      },
+    },
+    memberList: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 2,
+    },
+    memberItem: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      p: 2,
+      borderRadius: 'md',
+      bg: 'whiteAlpha.100',
+    },
+    memberText: {
+      color: 'white',
+      fontSize: 'sm',
+    },
+    removeButton: {
+      size: 'sm',
+      color: 'red.300',
+      bg: 'transparent',
+      _hover: {
+        bg: 'whiteAlpha.200',
+      },
+    },
+    button: {
+      color: 'white',
+      bg: 'whiteAlpha.100',
+      _hover: {
+        bg: 'whiteAlpha.200',
+      },
+    },
+    clipboardButton: {
+      color: 'white',
+      bg: 'transparent',
+      _hover: {
+        bg: 'whiteAlpha.200',
+      },
+      size: 'sm',
+    },
+  },
 };
+
+export const chatPanelStyles = css`
+  .cs-message-list {
+    background: var(--chakra-colors-gray-900) !important;
+    padding: var(--chakra-space-4);
+  }
+  
+  .cs-message {
+    margin: 12px 0;
+    padding-top: 20px !important;
+  }
+
+  .cs-message__content {
+    background-color: var(--chakra-colors-gray-700) !important;
+    border-radius: var(--chakra-radii-md);
+    padding: 8px !important;
+    color: var(--chakra-colors-white) !important;
+    font-size: 0.95rem !important;
+    line-height: 1.5 !important;
+    margin-top: 4px !important;
+  }
+
+  .cs-message__text {
+    padding: 8px 0 !important;
+  }
+
+  .cs-message--outgoing .cs-message__content {
+    background-color: var(--chakra-colors-gray-600) !important;
+  }
+
+  .cs-chat-container {
+    background: transparent !important;
+    border: 1px solid var(--chakra-colors-whiteAlpha-200);
+    border-radius: var(--chakra-radii-lg);
+    padding: var(--chakra-space-2);
+  }
+
+  .cs-main-container {
+    border: none !important;
+    background: transparent !important;
+    width: calc(100% - 24px) !important;
+    margin-left: 0 !important;
+  }
+
+  .cs-message__sender {
+    position: absolute !important;
+    top: 0 !important;
+    left: 36px !important;
+    font-size: 0.875rem !important;
+    font-weight: 600 !important;
+    color: var(--chakra-colors-whiteAlpha-900) !important;
+  }
+
+  .cs-message__content-wrapper {
+    max-width: 80%;
+    margin: 0 8px;
+  }
+
+  .cs-avatar {
+    background-color: var(--chakra-colors-blue-500) !important;
+    color: white !important;
+    width: 28px !important;
+    height: 28px !important;
+    font-size: 14px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 50% !important;
+  }
+
+  .cs-message--outgoing .cs-avatar {
+    background-color: var(--chakra-colors-green-500) !important;
+  }
+
+  .cs-message__header {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+`;

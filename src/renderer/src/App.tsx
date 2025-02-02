@@ -23,7 +23,9 @@ import { Live2DModelProvider } from './context/live2d-model-context';
 import { InputSubtitle } from './components/electron/input-subtitle';
 import { ProactiveSpeakProvider } from './context/proactive-speak-context';
 import { ScreenCaptureProvider } from './context/screen-capture-context';
-
+import { GroupProvider } from './context/group-context';
+// eslint-disable-next-line import/no-extraneous-dependencies, import/newline-after-import
+import "@chatscope/chat-ui-kit-styles/dist/default/styles.min.css";
 function App(): JSX.Element {
   const [showSidebar, setShowSidebar] = useState(true);
   const [isFooterCollapsed, setIsFooterCollapsed] = useState(false);
@@ -70,66 +72,68 @@ function App(): JSX.Element {
       <Live2DModelProvider>
         <CameraProvider>
           <ScreenCaptureProvider>
-            <ChatHistoryProvider>
-              <AiStateProvider>
-                <ProactiveSpeakProvider>
-                  <CharacterConfigProvider>
+            <CharacterConfigProvider>
+              <ChatHistoryProvider>
+                <AiStateProvider>
+                  <ProactiveSpeakProvider>
                     <Live2DConfigProvider>
                       <SubtitleProvider>
                         <VADProvider>
                           <BgUrlProvider>
-                            <WebSocketHandler>
-                              <Toaster />
-                              {mode === 'window' ? (
-                                <>
-                                  {isElectron && <TitleBar />}
-                                  <Flex {...layoutStyles.appContainer}>
-                                    <Box
-                                      {...layoutStyles.sidebar}
-                                      {...(!showSidebar && { width: '24px' })}
-                                    >
-                                      <Sidebar
-                                        isCollapsed={!showSidebar}
-                                        onToggle={() => setShowSidebar(!showSidebar)}
-                                      />
-                                    </Box>
-                                    <Box {...layoutStyles.mainContent}>
-                                      {/* <Box {...layoutStyles.canvas}> */}
-                                      <Canvas />
-                                      {/* <InputSubtitle isPet={false} /> */}
-                                      {/* </Box> */}
+                            <GroupProvider>
+                              <WebSocketHandler>
+                                <Toaster />
+                                {mode === 'window' ? (
+                                  <>
+                                    {isElectron && <TitleBar />}
+                                    <Flex {...layoutStyles.appContainer}>
                                       <Box
-                                        {...layoutStyles.footer}
-                                        {...(isFooterCollapsed
-                                          && layoutStyles.collapsedFooter)}
+                                        {...layoutStyles.sidebar}
+                                        {...(!showSidebar && { width: '24px' })}
                                       >
-                                        <Footer
-                                          isCollapsed={isFooterCollapsed}
-                                          onToggle={() => setIsFooterCollapsed(
-                                            !isFooterCollapsed,
-                                          )}
+                                        <Sidebar
+                                          isCollapsed={!showSidebar}
+                                          onToggle={() => setShowSidebar(!showSidebar)}
                                         />
                                       </Box>
-                                    </Box>
-                                  </Flex>
-                                </>
-                              ) : (
-                                <>
-                                  <Live2D isPet={mode === 'pet'} />
-                                  {mode === 'pet' && (
-                                    <InputSubtitle isPet={mode === 'pet'} />
-                                  )}
-                                </>
-                              )}
-                            </WebSocketHandler>
+                                      <Box {...layoutStyles.mainContent}>
+                                        {/* <Box {...layoutStyles.canvas}> */}
+                                        <Canvas />
+                                        {/* <InputSubtitle isPet={false} /> */}
+                                        {/* </Box> */}
+                                        <Box
+                                          {...layoutStyles.footer}
+                                          {...(isFooterCollapsed
+                                            && layoutStyles.collapsedFooter)}
+                                        >
+                                          <Footer
+                                            isCollapsed={isFooterCollapsed}
+                                            onToggle={() => setIsFooterCollapsed(
+                                              !isFooterCollapsed,
+                                            )}
+                                          />
+                                        </Box>
+                                      </Box>
+                                    </Flex>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Live2D isPet={mode === 'pet'} />
+                                    {mode === 'pet' && (
+                                      <InputSubtitle isPet={mode === 'pet'} />
+                                    )}
+                                  </>
+                                )}
+                              </WebSocketHandler>
+                            </GroupProvider>
                           </BgUrlProvider>
                         </VADProvider>
                       </SubtitleProvider>
                     </Live2DConfigProvider>
-                  </CharacterConfigProvider>
-                </ProactiveSpeakProvider>
-              </AiStateProvider>
-            </ChatHistoryProvider>
+                  </ProactiveSpeakProvider>
+                </AiStateProvider>
+              </ChatHistoryProvider>
+            </CharacterConfigProvider>
           </ScreenCaptureProvider>
         </CameraProvider>
       </Live2DModelProvider>

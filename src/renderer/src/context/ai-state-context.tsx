@@ -59,6 +59,8 @@ interface AiStateContextType {
     (state: AiState): void;
     (updater: (currentState: AiState) => AiState): void;
   };
+  backendSynthComplete: boolean;
+  setBackendSynthComplete: (complete: boolean) => void;
   isIdle: boolean;
   isThinkingSpeaking: boolean;
   isInterrupted: boolean;
@@ -83,6 +85,7 @@ export const AiStateContext = createContext<AiStateContextType | null>(null);
  */
 export function AiStateProvider({ children }: { children: ReactNode }) {
   const [aiState, setAiStateInternal] = useState<AiState>(initialState);
+  const [backendSynthComplete, setBackendSynthComplete] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   const setAiState = useCallback((newState: AiState | ((currentState: AiState) => AiState)) => {
@@ -141,10 +144,12 @@ export function AiStateProvider({ children }: { children: ReactNode }) {
     () => ({
       aiState,
       setAiState,
+      backendSynthComplete,
+      setBackendSynthComplete,
       ...stateChecks,
       resetState,
     }),
-    [aiState, setAiState, stateChecks, resetState],
+    [aiState, setAiState, backendSynthComplete, stateChecks, resetState],
   );
 
   return (

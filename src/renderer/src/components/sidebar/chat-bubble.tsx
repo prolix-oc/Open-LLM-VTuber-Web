@@ -1,67 +1,53 @@
-import { Box, Text } from '@chakra-ui/react';
-import { useEffect, useRef } from 'react';
+import { Box, Text, Flex } from '@chakra-ui/react';
+import { Avatar, AvatarGroup } from '@/components/ui/avatar';
 import { Message } from '@/services/websocket-service';
-import { sidebarStyles } from './sidebar-styles';
 
 // Type definitions
 interface ChatBubbleProps {
-  message: Message
-  onUpdate?: () => void
-}
-
-interface BubbleContentProps {
-  content: string
-  onContentChange?: () => void
-}
-
-interface BubbleIndicatorProps {
-  isAI: boolean
-}
-
-// Reusable components
-function BubbleContent({ content, onContentChange }: BubbleContentProps): JSX.Element {
-  const prevContentRef = useRef(content);
-
-  useEffect(() => {
-    if (content !== prevContentRef.current) {
-      prevContentRef.current = content;
-      onContentChange?.();
-    }
-  }, [content, onContentChange]);
-
-  return (
-    <Box {...sidebarStyles.chatBubble.message}>
-      <Text {...sidebarStyles.chatBubble.text}>{content}</Text>
-    </Box>
-  );
-}
-
-function BubbleIndicator({ isAI }: BubbleIndicatorProps): JSX.Element {
-  return (
-    <Box
-      {...sidebarStyles.chatBubble.dot}
-      left={isAI ? '-1' : 'auto'}
-      right={!isAI ? '-1' : 'auto'}
-    />
-  );
+  message: Message;
+  isSelected?: boolean;
+  onClick?: () => void;
 }
 
 // Main component
-function ChatBubble({ message, onUpdate }: ChatBubbleProps): JSX.Element {
+export function ChatBubble({ message, isSelected, onClick }: ChatBubbleProps): JSX.Element {
   const isAI = message.role === 'ai';
 
   return (
     <Box
-      {...sidebarStyles.chatBubble.container}
-      justifyContent={isAI ? 'flex-start' : 'flex-end'}
+      onClick={onClick}
+      cursor="pointer"
+      bg={isSelected ? 'gray.100' : 'transparent'}
+      _hover={{ bg: 'gray.50' }}
+      p={2}
+      borderRadius="md"
+      transition="background-color 0.2s"
     >
-      <BubbleContent
-        content={message.content}
-        onContentChange={onUpdate}
-      />
-      <BubbleIndicator isAI={isAI} />
+      <Flex gap={3}>
+        <AvatarGroup>
+          <Avatar
+            size="sm"
+            name={message.name || (isAI ? 'AI' : 'Me')}
+            bg={isAI ? 'blue.500' : 'green.500'}
+            color="white"
+          />
+        </AvatarGroup>
+        <Box flex={1}>
+          <Text fontSize="sm" fontWeight="bold" color="gray.700">
+            {message.name || (isAI ? 'AI' : 'Me')}
+          </Text>
+          <Text
+            fontSize="sm"
+            color="gray.600"
+            truncate
+          >
+            {message.content}
+          </Text>
+          <Text fontSize="xs" color="gray.400" mt={1}>
+            {new Date(message.timestamp).toLocaleTimeString()}
+          </Text>
+        </Box>
+      </Flex>
     </Box>
   );
 }
-
-export default ChatBubble;

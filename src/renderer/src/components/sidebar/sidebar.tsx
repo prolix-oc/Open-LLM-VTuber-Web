@@ -1,7 +1,7 @@
 /* eslint-disable react/require-default-props */
 import { Box, Button } from '@chakra-ui/react';
 import {
-  FiSettings, FiClock, FiPlus, FiChevronLeft,
+  FiSettings, FiClock, FiPlus, FiChevronLeft, FiUsers,
 } from 'react-icons/fi';
 import { memo } from 'react';
 import { sidebarStyles } from './sidebar-styles';
@@ -10,6 +10,7 @@ import ChatHistoryPanel from './chat-history-panel';
 import BottomTab from './bottom-tab';
 import HistoryDrawer from './history-drawer';
 import { useSidebar } from '@/hooks/sidebar/use-sidebar';
+import GroupDrawer from './group-drawer';
 
 // Type definitions
 interface SidebarProps {
@@ -45,6 +46,12 @@ const HeaderButtons = memo(({ onSettingsOpen, onNewHistory }: HeaderButtonsProps
     <Button onClick={onSettingsOpen}>
       <FiSettings />
     </Button>
+
+    <GroupDrawer>
+      <Button>
+        <FiUsers />
+      </Button>
+    </GroupDrawer>
 
     <HistoryDrawer>
       <Button>
