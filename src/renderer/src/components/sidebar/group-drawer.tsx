@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { Box, Button, IconButton, Input, Text } from "@chakra-ui/react";
 import { FiX } from "react-icons/fi";
 import {
@@ -17,7 +16,6 @@ import { ClipboardButton, ClipboardRoot } from "@/components/ui/clipboard";
 import { useGroupDrawer } from "@/hooks/sidebar/use-group-drawer";
 import { sidebarStyles } from "./sidebar-styles";
 import { useGroup } from "@/context/group-context";
-import { useWebSocket } from "@/context/websocket-context";
 
 interface GroupDrawerProps {
   children: React.ReactNode;
@@ -33,21 +31,18 @@ function GroupDrawer({ children }: GroupDrawerProps) {
     handleInvite,
     handleRemove,
     handleLeaveGroup,
+    requestGroupInfo,
   } = useGroupDrawer();
-  const { sendMessage } = useWebSocket();
-
-  useEffect(() => {
-    if (isOpen) {
-      sendMessage({
-        type: "request-group-info",
-      });
-    }
-  }, [isOpen]);
 
   return (
     <DrawerRoot
       open={isOpen}
-      onOpenChange={(e) => setIsOpen(e.open)}
+      onOpenChange={(e) => {
+        setIsOpen(e.open);
+        if (e.open) {
+          requestGroupInfo();
+        }
+      }}
       placement="start"
     >
       <DrawerBackdrop />

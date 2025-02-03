@@ -1,3 +1,4 @@
+/* eslint-disable no-nested-ternary */
 /* eslint-disable import/order */
 /* eslint-disable import/no-extraneous-dependencies */
 /* eslint-disable react/require-default-props */
@@ -13,6 +14,7 @@ import '@chatscope/chat-ui-kit-styles/dist/default/styles.min.css';
 import { useChatHistory } from '@/context/chat-history-context';
 import { Global } from '@emotion/react';
 import { useConfig } from '@/context/character-config-context';
+import { useWebSocket } from '@/context/websocket-context';
 
 // Type definitions
 interface MessageListProps {
@@ -68,7 +70,10 @@ MessageList.displayName = 'MessageList';
 function ChatHistoryPanel(): JSX.Element {
   const { messages } = useChatHistory();
   const { confName } = useConfig();
+  const { baseUrl } = useWebSocket();
   const userName = "Me";
+
+  const validMessages = messages.filter((msg) => msg.content && msg.content.trim().length > 0);
 
   return (
     <Box
@@ -80,7 +85,7 @@ function ChatHistoryPanel(): JSX.Element {
       <MainContainer>
         <ChatContainer>
           <ChatMessageList>
-            {messages.length === 0 ? (
+            {validMessages.length === 0 ? (
               <Box
                 display="flex"
                 alignItems="center"
@@ -92,7 +97,7 @@ function ChatHistoryPanel(): JSX.Element {
                 No messages yet. Start a conversation!
               </Box>
             ) : (
-              messages.map((msg) => (
+              validMessages.map((msg) => (
                 <ChatMessage
                   key={msg.id}
                   model={{
@@ -108,9 +113,21 @@ function ChatHistoryPanel(): JSX.Element {
                   avatarSpacer={false}
                 >
                   <ChatAvatar>
-                    {msg.role === 'ai'
-                      ? (msg.avatar || (msg.name && msg.name[0].toUpperCase()) || (confName && confName[0].toUpperCase()) || 'A')
-                      : userName[0].toUpperCase()}
+                    {msg.role === 'ai' ? (
+                      msg.avatar ? (
+                        <img
+                          src={`${baseUrl}/avatars/${msg.avatar}`}
+                          alt="avatar"
+                          style={{ width: '100%', height: '100%', borderRadius: '50%' }}
+                        />
+                      ) : (
+                        (msg.name && msg.name[0].toUpperCase()) ||
+                        (confName && confName[0].toUpperCase()) ||
+                        'A'
+                      )
+                    ) : (
+                      userName[0].toUpperCase()
+                    )}
                   </ChatAvatar>
                 </ChatMessage>
               ))

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useWebSocket } from '@/context/websocket-context';
 import { toaster } from '@/components/ui/toaster';
 
@@ -7,7 +7,14 @@ export const useGroupDrawer = () => {
   const [inviteUid, setInviteUid] = useState('');
   const { sendMessage } = useWebSocket();
 
-  const handleInvite = () => {
+  // Request latest group information to update the display
+  const requestGroupInfo = useCallback(() => {
+    sendMessage({
+      type: 'request-group-info',
+    });
+  }, [sendMessage]);
+
+  const handleInvite = useCallback(async () => {
     if (!inviteUid.trim()) {
       toaster.create({
         title: 'Please enter a valid UUID',
@@ -22,21 +29,30 @@ export const useGroupDrawer = () => {
       invitee_uid: inviteUid.trim(),
     });
     setInviteUid('');
-  };
 
-  const handleRemove = (targetUid: string) => {
+    // Add a small delay to ensure server has processed the operation
+    setTimeout(requestGroupInfo, 100);
+  }, [inviteUid, sendMessage, requestGroupInfo]);
+
+  const handleRemove = useCallback((targetUid: string) => {
     sendMessage({
       type: 'remove-client-from-group',
       target_uid: targetUid,
     });
-  };
 
-  const handleLeaveGroup = (selfUid: string) => {
+    // Add a small delay to ensure server has processed the operation
+    setTimeout(requestGroupInfo, 100);
+  }, [sendMessage, requestGroupInfo]);
+
+  const handleLeaveGroup = useCallback((selfUid: string) => {
     sendMessage({
       type: 'remove-client-from-group',
       target_uid: selfUid,
     });
-  };
+
+    // Add a small delay to ensure server has processed the operation
+    setTimeout(requestGroupInfo, 100);
+  }, [sendMessage, requestGroupInfo]);
 
   return {
     isOpen,
@@ -46,5 +62,6 @@ export const useGroupDrawer = () => {
     handleInvite,
     handleRemove,
     handleLeaveGroup,
+    requestGroupInfo,
   };
 };

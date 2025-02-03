@@ -224,6 +224,7 @@ function WebSocketHandler({ children }: { children: React.ReactNode }) {
         });
         break;
       case 'group-update':
+        console.log('Received group-update:', message.members);
         if (message.members) {
           setGroupMembers(message.members);
         }

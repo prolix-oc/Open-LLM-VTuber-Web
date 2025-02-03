@@ -8,6 +8,7 @@ interface GroupContextState {
   setGroupMembers: (members: string[]) => void;
   setIsOwner: (isOwner: boolean) => void;
   sortedGroupMembers: string[];
+  resetGroupState: () => void;
 }
 
 const GroupContext = createContext<GroupContextState | null>(null);
@@ -16,6 +17,11 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
   const [selfUid, setSelfUid] = useState('');
   const [groupMembers, setGroupMembers] = useState<string[]>([]);
   const [isOwner, setIsOwner] = useState(false);
+
+  const resetGroupState = () => {
+    setGroupMembers([]);
+    setIsOwner(false);
+  };
 
   const sortedGroupMembers = useMemo(() => {
     if (!groupMembers.includes(selfUid)) return groupMembers;
@@ -36,6 +42,7 @@ export function GroupProvider({ children }: { children: React.ReactNode }) {
       setGroupMembers,
       setIsOwner,
       sortedGroupMembers,
+      resetGroupState,
     }}
     >
       {children}
