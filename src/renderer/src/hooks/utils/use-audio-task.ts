@@ -85,18 +85,22 @@ export const useAudioTask = () => {
       }
 
       let isFinished = false;
-      model.speak(`data:audio/wav;base64,${audioBase64}`, {
-        onFinish: () => {
-          console.log("Voiceline is over");
-          isFinished = true;
-          resolve();
-        },
-        onError: (error) => {
-          console.error("Audio playback error:", error);
-          isFinished = true;
-          resolve();
-        },
-      });
+      if (audioBase64) {
+        model.speak(`data:audio/wav;base64,${audioBase64}`, {
+          onFinish: () => {
+            console.log("Voiceline is over");
+            isFinished = true;
+            resolve();
+          },
+          onError: (error) => {
+            console.error("Audio playback error:", error);
+            isFinished = true;
+            resolve();
+          },
+        });
+      } else {
+        resolve();
+      }
 
       const checkFinished = () => {
         if (!isFinished) {

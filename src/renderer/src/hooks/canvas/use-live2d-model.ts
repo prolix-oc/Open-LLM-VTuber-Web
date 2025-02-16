@@ -272,6 +272,7 @@ export const useLive2DModel = ({
     (model: Live2DModel, x: number, y: number) => {
       if (!modelInfo?.tapMotions) return;
 
+      console.log("handleTapMotion", modelInfo?.tapMotions);
       // Convert global coordinates to model's local coordinates
       const localPos = model.toLocal(new PIXI.Point(x, y));
       const hitAreas = model.hitTest(localPos.x, localPos.y);
@@ -351,7 +352,7 @@ const playRandomMotion = (model: Live2DModel, motionGroup: MotionWeightMap) => {
     if (random <= 0) {
       const priority = audioTaskQueue.hasTask()
         ? MotionPriority.NORMAL
-        : MotionPriority.NORMAL;
+        : MotionPriority.FORCE;
 
       console.log(
         `Playing weighted motion: ${motion} (weight: ${weight}/${totalWeight}, priority: ${priority})`,
