@@ -306,12 +306,15 @@ export function VADProvider({ children }: { children: React.ReactNode }) {
     console.log('Stopping VAD');
     if (vadRef.current) {
       vadRef.current.pause();
-      console.log('VAD paused successfully');
+      vadRef.current.destroy();
+      vadRef.current = null;
+      console.log('VAD stopped and destroyed successfully');
       setPreviousTriggeredProbability(0);
     } else {
       console.log('VAD instance not found');
     }
     setMicOn(false);
+    isProcessingRef.current = false;
   }, []);
 
   /**
