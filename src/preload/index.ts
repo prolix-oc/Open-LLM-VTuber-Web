@@ -7,6 +7,14 @@ const api = {
   setIgnoreMouseEvents: (ignore: boolean) => {
     ipcRenderer.send('set-ignore-mouse-events', ignore);
   },
+  toggleForceIgnoreMouse: () => {
+    ipcRenderer.send('toggle-force-ignore-mouse');
+  },
+  onForceIgnoreMouseChanged: (callback: (isForced: boolean) => void) => {
+    const handler = (_event: any, isForced: boolean) => callback(isForced);
+    ipcRenderer.on('force-ignore-mouse-changed', handler);
+    return () => ipcRenderer.removeListener('force-ignore-mouse-changed', handler);
+  },
   showContextMenu: () => {
     console.log('Preload showContextMenu');
     ipcRenderer.send('show-context-menu');

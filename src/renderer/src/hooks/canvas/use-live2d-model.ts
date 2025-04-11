@@ -18,6 +18,7 @@ import { setModelSize, resetModelPosition } from "./use-live2d-resize";
 import { audioTaskQueue } from "@/utils/task-queue";
 import { AiStateEnum, useAiState } from "@/context/ai-state-context";
 import { toaster } from "@/components/ui/toaster";
+import { useForceIgnoreMouse } from "../utils/use-force-ignore-mouse";
 
 interface UseLive2DModelProps {
   isPet: boolean; // Whether the model is in pet mode
@@ -38,6 +39,7 @@ export const useLive2DModel = ({
   const loadingRef = useRef(false);
   const { setAiState, aiState } = useAiState();
   const [isModelReady, setIsModelReady] = useState(false);
+  const { forceIgnoreMouse } = useForceIgnoreMouse();
 
   // Cleanup function for Live2D model
   const cleanupModel = useCallback(() => {
@@ -196,6 +198,7 @@ export const useLive2DModel = ({
     (model: Live2DModel) => {
       if (!model) return;
 
+      // Clear all previous listeners
       model.removeAllListeners("pointerenter");
       model.removeAllListeners("pointerleave");
       model.removeAllListeners("rightdown");
@@ -203,6 +206,17 @@ export const useLive2DModel = ({
       model.removeAllListeners("pointermove");
       model.removeAllListeners("pointerup");
       model.removeAllListeners("pointerupoutside");
+
+      // If force ignore mouse is enabled, disable interaction
+      if (forceIgnoreMouse && isPet) {
+        model.interactive = false;
+        model.cursor = "default";
+        return;
+      }
+
+      // Enable interactions
+      model.interactive = true;
+      model.cursor = "pointer";
 
       let dragging = false;
       let pointerX = 0;
@@ -265,7 +279,7 @@ export const useLive2DModel = ({
         dragging = false;
       });
     },
-    [isPet],
+    [isPet, forceIgnoreMouse],
   );
 
   const handleTapMotion = useCallback(
@@ -331,7 +345,7 @@ export const useLive2DModel = ({
     if (modelRef.current && isModelReady) {
       setupModelInteractions(modelRef.current);
     }
-  }, [isModelReady, setupModelInteractions]); // Dependency of setupModelInteractions includes isPet already
+  }, [isModelReady, setupModelInteractions, forceIgnoreMouse]);
 
   return {
     canvasRef,

@@ -20,6 +20,9 @@ export class WindowManager {
 
   private currentMode: 'window' | 'pet' = 'window';
 
+  // Track if mouse events are forcibly ignored
+  private forceIgnoreMouse = false;
+
   constructor() {
     ipcMain.on('renderer-ready-for-mode-change', (_event, newMode) => {
       if (newMode === 'pet') {
@@ -42,6 +45,11 @@ export class WindowManager {
       if (window && window.isFullScreen()) {
         window.setFullScreen(false);
       }
+    });
+
+    // Handle toggle force ignore mouse events from renderer
+    ipcMain.on('toggle-force-ignore-mouse', () => {
+      this.toggleForceIgnoreMouse();
     });
   }
 
@@ -261,6 +269,9 @@ export class WindowManager {
   updateComponentHover(componentId: string, isHovering: boolean): void {
     if (this.currentMode === 'window') return;
 
+    // If force ignore is enabled, don't change the mouse ignore state
+    if (this.forceIgnoreMouse) return;
+
     if (isHovering) {
       this.hoveringComponents.add(componentId);
     } else {
@@ -278,5 +289,35 @@ export class WindowManager {
         this.window.setFocusable(true);
       }
     }
+  }
+
+  // Toggle force ignore mouse events
+  toggleForceIgnoreMouse(): void {
+    this.forceIgnoreMouse = !this.forceIgnoreMouse;
+
+    // Apply the new setting immediately
+    if (this.forceIgnoreMouse) {
+      if (isMac) {
+        this.window?.setIgnoreMouseEvents(true);
+      } else {
+        this.window?.setIgnoreMouseEvents(true, { forward: true });
+      }
+    } else {
+      // Reapply normal behavior based on hovering components
+      const shouldIgnore = this.hoveringComponents.size === 0;
+      if (isMac) {
+        this.window?.setIgnoreMouseEvents(shouldIgnore);
+      } else {
+        this.window?.setIgnoreMouseEvents(shouldIgnore, { forward: true });
+      }
+    }
+
+    // Notify renderer about the change
+    this.window?.webContents.send('force-ignore-mouse-changed', this.forceIgnoreMouse);
+  }
+
+  // Get current force ignore state
+  isForceIgnoreMouse(): boolean {
+    return this.forceIgnoreMouse;
   }
 }

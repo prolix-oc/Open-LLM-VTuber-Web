@@ -37,7 +37,7 @@ export class MenuManager {
     return [
       {
         label: 'Window Mode',
-        type: 'radio',
+        type: 'radio' as const,
         checked: this.currentMode === 'window',
         click: () => {
           this.setMode('window');
@@ -45,7 +45,7 @@ export class MenuManager {
       },
       {
         label: 'Pet Mode',
-        type: 'radio',
+        type: 'radio' as const,
         checked: this.currentMode === 'pet',
         click: () => {
           this.setMode('pet');
@@ -60,7 +60,22 @@ export class MenuManager {
 
     const contextMenu = Menu.buildFromTemplate([
       ...this.getModeMenuItems(),
-      { type: 'separator' },
+      { type: 'separator' as const },
+      // Only show toggle mouse ignore in pet mode
+      ...(this.currentMode === 'pet'
+        ? [
+          {
+            label: 'Toggle Mouse Passthrough',
+            click: () => {
+              const windows = BrowserWindow.getAllWindows();
+              windows.forEach((window) => {
+                window.webContents.send('toggle-force-ignore-mouse');
+              });
+            },
+          },
+          { type: 'separator' as const },
+        ]
+        : []),
       {
         label: 'Show',
         click: () => {
@@ -105,7 +120,18 @@ export class MenuManager {
           event.sender.send('interrupt');
         },
       },
-      { type: 'separator' },
+      { type: 'separator' as const },
+      // Only show in pet mode
+      ...(this.currentMode === 'pet'
+        ? [
+          {
+            label: 'Toggle Mouse Passthrough',
+            click: () => {
+              event.sender.send('toggle-force-ignore-mouse');
+            },
+          },
+        ]
+        : []),
       {
         label: 'Toggle Scrolling to Resize',
         click: () => {
@@ -123,9 +149,9 @@ export class MenuManager {
           },
         ]
         : []),
-      { type: 'separator' },
+      { type: 'separator' as const },
       ...this.getModeMenuItems(),
-      { type: 'separator' },
+      { type: 'separator' as const },
       {
         label: 'Switch Character',
         visible: this.currentMode === 'pet',
@@ -136,7 +162,7 @@ export class MenuManager {
           },
         })),
       },
-      { type: 'separator' },
+      { type: 'separator' as const },
       {
         label: 'Hide',
         click: () => {

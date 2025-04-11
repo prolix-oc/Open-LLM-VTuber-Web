@@ -6,6 +6,7 @@ import { useLive2DModel } from "@/hooks/canvas/use-live2d-model";
 import { useLive2DResize } from "@/hooks/canvas/use-live2d-resize";
 import { useInterrupt } from "@/hooks/utils/use-interrupt";
 import { useAudioTask } from "@/hooks/utils/use-audio-task";
+import { useForceIgnoreMouse } from "@/hooks/utils/use-force-ignore-mouse";
 
 interface Live2DProps {
   isPet: boolean;
@@ -13,6 +14,7 @@ interface Live2DProps {
 
 export const Live2D = memo(({ isPet }: Live2DProps): JSX.Element => {
   const { modelInfo, isLoading } = useLive2DConfig();
+  const { forceIgnoreMouse } = useForceIgnoreMouse();
 
   // Register IPC handlers here as Live2D is a persistent component in the pet mode
   useIpcHandlers({ isPet });
@@ -54,7 +56,7 @@ export const Live2D = memo(({ isPet }: Live2DProps): JSX.Element => {
       style={{
         width: isPet ? "100vw" : "100%",
         height: isPet ? "100vh" : "100%",
-        pointerEvents: "auto",
+        pointerEvents: isPet && forceIgnoreMouse ? "none" : "auto",
         overflow: "hidden",
         opacity: isLoading ? 0 : 1,
         transition: "opacity 0.3s ease-in-out",
@@ -66,7 +68,7 @@ export const Live2D = memo(({ isPet }: Live2DProps): JSX.Element => {
         style={{
           width: "100%",
           height: "100%",
-          pointerEvents: "auto",
+          pointerEvents: isPet && forceIgnoreMouse ? "none" : "auto",
           display: "block",
         }}
       />
