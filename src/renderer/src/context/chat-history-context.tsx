@@ -1,3 +1,4 @@
+/* eslint-disable no-else-return */
 import {
   createContext, useContext, useState, useMemo, useCallback,
 } from 'react';
@@ -9,17 +10,18 @@ import { HistoryInfo } from './websocket-context';
  * @interface ChatHistoryState
  */
 interface ChatHistoryState {
-  messages: Message[];
+  messages: Message[]; // Use the unified Message type
   historyList: HistoryInfo[];
   currentHistoryUid: string | null;
   appendHumanMessage: (content: string) => void;
   appendAIMessage: (content: string, name?: string, avatar?: string) => void;
-  setMessages: (messages: Message[]) => void;
+  appendOrUpdateToolCallMessage: (toolMessageData: Partial<Message>) => void; // Accept partial data
+  setMessages: (messages: Message[]) => void; // Use the unified Message type
   setHistoryList: (
     value: HistoryInfo[] | ((prev: HistoryInfo[]) => HistoryInfo[])
   ) => void;
   setCurrentHistoryUid: (uid: string | null) => void;
-  updateHistoryList: (uid: string, latestMessage: Message | null) => void;
+  updateHistoryList: (uid: string, latestMessage: Message | null) => void; // Use the unified Message type
   fullResponse: string;
   setFullResponse: (text: string) => void;
   appendResponse: (text: string) => void;
@@ -68,6 +70,7 @@ export function ChatHistoryProvider({ children }: { children: React.ReactNode })
       id: Date.now().toString(),
       content,
       role: 'human',
+      type: 'text', // Explicitly set type for human messages
       timestamp: new Date().toISOString(),
     };
     setMessages((prevMessages) => [...prevMessages, newMessage]);
@@ -81,20 +84,21 @@ export function ChatHistoryProvider({ children }: { children: React.ReactNode })
     setMessages((prevMessages) => {
       const lastMessage = prevMessages[prevMessages.length - 1];
 
-      // If forceNewMessage is true or last message is not from AI, create new message
-      if (forceNewMessage || !lastMessage || lastMessage.role !== 'ai') {
+      // If forceNewMessage is true or last message is not an AI text message, create new message
+      if (forceNewMessage || !lastMessage || lastMessage.role !== 'ai' || lastMessage.type !== 'text') {
         setForceNewMessage(false); // Reset the flag
         return [...prevMessages, {
           id: Date.now().toString(),
           content,
           role: 'ai',
+          type: 'text', // Explicitly set type for AI text messages
           timestamp: new Date().toISOString(),
           name,
           avatar,
         }];
       }
 
-      // Otherwise, merge with last AI message
+      // Otherwise, merge with last AI text message
       return [
         ...prevMessages.slice(0, -1),
         {
@@ -105,6 +109,53 @@ export function ChatHistoryProvider({ children }: { children: React.ReactNode })
       ];
     });
   }, [forceNewMessage, setForceNewMessage]);
+
+  /**
+   * Append or update a Tool Call message using its tool_id
+   * @param toolMessageData - The partial tool call message data from WebSocket
+   */
+  const appendOrUpdateToolCallMessage = useCallback((toolMessageData: Partial<Message>) => {
+    // Ensure required fields for a tool call are present
+    if (!toolMessageData.tool_id || !toolMessageData.tool_name || !toolMessageData.status || !toolMessageData.timestamp) {
+      console.error('Incomplete tool message data received:', toolMessageData);
+      return;
+    }
+
+    setMessages((prevMessages) => {
+      const existingMessageIndex = prevMessages.findIndex(
+        (msg) => msg.type === 'tool_call_status' && msg.tool_id === toolMessageData.tool_id!,
+      );
+
+      if (existingMessageIndex !== -1) {
+        // Update existing tool call message status and content
+        const updatedMessages = [...prevMessages];
+        const existingMsg = updatedMessages[existingMessageIndex];
+        updatedMessages[existingMessageIndex] = {
+          ...existingMsg,
+          status: toolMessageData.status, // Update status
+          name: toolMessageData.name || existingMsg.name,
+          content: toolMessageData.content || existingMsg.content, // Update content (result/error or keep input)
+          timestamp: toolMessageData.timestamp!, // Update timestamp
+        };
+        return updatedMessages;
+      } else {
+        // Append new tool call message
+        const newToolMessage: Message = {
+          id: toolMessageData.tool_id!, // Use tool_id as the main ID for uniqueness
+          role: 'ai',
+          type: 'tool_call_status',
+          name: toolMessageData.name || '',
+          tool_id: toolMessageData.tool_id,
+          tool_name: toolMessageData.tool_name,
+          status: toolMessageData.status,
+          content: toolMessageData.content || '', // Initial content (input)
+          timestamp: toolMessageData.timestamp!,
+          // name/avatar could potentially be added if needed
+        };
+        return [...prevMessages, newToolMessage];
+      }
+    });
+  }, []);
 
   /**
    * Update the history list with the latest message
@@ -156,6 +207,7 @@ export function ChatHistoryProvider({ children }: { children: React.ReactNode })
       currentHistoryUid,
       appendHumanMessage,
       appendAIMessage,
+      appendOrUpdateToolCallMessage, // Add to context value
       setMessages,
       setHistoryList,
       setCurrentHistoryUid,
@@ -172,6 +224,7 @@ export function ChatHistoryProvider({ children }: { children: React.ReactNode })
       currentHistoryUid,
       appendHumanMessage,
       appendAIMessage,
+      appendOrUpdateToolCallMessage, // Add dependency
       updateHistoryList,
       fullResponse,
       appendResponse,

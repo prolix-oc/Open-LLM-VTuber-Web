@@ -1,21 +1,25 @@
 import { Box } from '@chakra-ui/react';
 import React, { memo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { canvasStyles } from './canvas-styles';
 import { useWSStatus } from '@/hooks/canvas/use-ws-status';
 
 // Type definitions
 interface StatusContentProps {
-  text: string
+  textKey: string
 }
 
 // Reusable components
-const StatusContent: React.FC<StatusContentProps> = ({ text }) => text;
+const StatusContent: React.FC<StatusContentProps> = ({ textKey }) => {
+  const { t } = useTranslation();
+  return t(textKey);
+};
 const MemoizedStatusContent = memo(StatusContent);
 
 // Main component
 const WebSocketStatus = memo((): JSX.Element => {
   const {
-    color, text, handleClick, isDisconnected,
+    color, textKey, handleClick, isDisconnected,
   } = useWSStatus();
 
   return (
@@ -28,7 +32,7 @@ const WebSocketStatus = memo((): JSX.Element => {
         opacity: isDisconnected ? 0.8 : 1,
       }}
     >
-      <MemoizedStatusContent text={text} />
+      <MemoizedStatusContent textKey={textKey} />
     </Box>
   );
 });

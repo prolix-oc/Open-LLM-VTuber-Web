@@ -1,6 +1,8 @@
+/* eslint-disable import/no-extraneous-dependencies */
 /* eslint-disable react/require-default-props */
 import { Stack } from '@chakra-ui/react';
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { settingStyles } from './setting-styles';
 import { useASRSettings } from '@/hooks/sidebar/setting/use-asr-settings';
 import { SwitchField, NumberField } from './common';
@@ -11,6 +13,7 @@ interface ASRProps {
 }
 
 function ASR({ onSave, onCancel }: ASRProps): JSX.Element {
+  const { t } = useTranslation();
   const {
     localSettings,
     autoStopMic,
@@ -39,25 +42,25 @@ function ASR({ onSave, onCancel }: ASRProps): JSX.Element {
   return (
     <Stack {...settingStyles.common.container}>
       <SwitchField
-        label="Auto Stop Mic When AI Start Speaking"
+        label={t('settings.asr.autoStopMic')}
         checked={autoStopMic}
         onChange={setAutoStopMic}
       />
 
       <SwitchField
-        label="Auto Start Mic When Conversation End"
+        label={t('settings.asr.autoStartMicOnConvEnd')}
         checked={autoStartMicOnConvEnd}
         onChange={setAutoStartMicOnConvEnd}
       />
 
       <SwitchField
-        label="Auto Start Mic When AI Interrupted"
+        label={t('settings.asr.autoStartMicOn')}
         checked={autoStartMicOn}
         onChange={setAutoStartMicOn}
       />
 
       <NumberField
-        label="Speech Prob Threshold"
+        label={t('settings.asr.positiveSpeechThreshold')}
         value={localSettings.positiveSpeechThreshold}
         onChange={(value) => handleInputChange('positiveSpeechThreshold', value)}
         min={1}
@@ -65,7 +68,7 @@ function ASR({ onSave, onCancel }: ASRProps): JSX.Element {
       />
 
       <NumberField
-        label="Negative Speech Threshold"
+        label={t('settings.asr.negativeSpeechThreshold')}
         value={localSettings.negativeSpeechThreshold}
         onChange={(value) => handleInputChange('negativeSpeechThreshold', value)}
         min={0}
@@ -73,7 +76,7 @@ function ASR({ onSave, onCancel }: ASRProps): JSX.Element {
       />
 
       <NumberField
-        label="Redemption Frames"
+        label={t('settings.asr.redemptionFrames')}
         value={localSettings.redemptionFrames}
         onChange={(value) => handleInputChange('redemptionFrames', value)}
         min={1}

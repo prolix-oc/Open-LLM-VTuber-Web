@@ -15,6 +15,13 @@ export default defineConfig({
     resolve: {
       alias: {
         '@': resolve('src/renderer/src'),
+        "@framework": resolve("src/renderer/WebSDK/Framework/src"),
+        "@cubismsdksamples": resolve("src/renderer/WebSDK/src"),
+        "@motionsyncframework": resolve(
+          "src/renderer/MotionSync/Framework/src",
+        ),
+        "@motionsync": resolve("src/renderer/MotionSync/src"),
+        "/src": resolve("src/renderer/src"),
       },
     },
     plugins: [
@@ -36,6 +43,10 @@ export default defineConfig({
             src: normalizePath(resolve(__dirname, 'node_modules/onnxruntime-web/dist/*.wasm')),
             dest: './libs/',
           },
+          {
+            src: normalizePath(resolve(__dirname, 'src/renderer/WebSDK/Core/live2dcubismcore.js')),
+            dest: './libs/'
+          }
         ],
       }),
       react(),

@@ -6,6 +6,7 @@ import { BsMicFill, BsMicMuteFill, BsPaperclip } from 'react-icons/bs';
 import { IoHandRightSharp } from 'react-icons/io5';
 import { FiChevronDown } from 'react-icons/fi';
 import { memo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { InputGroup } from '@/components/ui/input-group';
 import { footerStyles } from './footer-styles';
 import AIStateIndicator from './ai-state-indicator';
@@ -80,28 +81,32 @@ const MessageInput = memo(({
   onKeyDown,
   onCompositionStart,
   onCompositionEnd,
-}: MessageInputProps) => (
-  <InputGroup flex={1}>
-    <Box position="relative" width="100%">
-      <IconButton
-        aria-label="Attach file"
-        variant="ghost"
-        {...footerStyles.footer.attachButton}
-      >
-        <BsPaperclip size="24" />
-      </IconButton>
-      <Textarea
-        value={value}
-        onChange={onChange}
-        onKeyDown={onKeyDown}
-        onCompositionStart={onCompositionStart}
-        onCompositionEnd={onCompositionEnd}
-        placeholder="Type your message..."
-        {...footerStyles.footer.input}
-      />
-    </Box>
-  </InputGroup>
-));
+}: MessageInputProps) => {
+  const { t } = useTranslation();
+
+  return (
+    <InputGroup flex={1}>
+      <Box position="relative" width="100%">
+        <IconButton
+          aria-label="Attach file"
+          variant="ghost"
+          {...footerStyles.footer.attachButton}
+        >
+          <BsPaperclip size="24" />
+        </IconButton>
+        <Textarea
+          value={value}
+          onChange={onChange}
+          onKeyDown={onKeyDown}
+          onCompositionStart={onCompositionStart}
+          onCompositionEnd={onCompositionEnd}
+          placeholder={t('footer.typeYourMessage')}
+          {...footerStyles.footer.input}
+        />
+      </Box>
+    </InputGroup>
+  );
+});
 
 MessageInput.displayName = 'MessageInput';
 

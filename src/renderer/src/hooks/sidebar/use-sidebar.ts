@@ -4,7 +4,7 @@ import { useInterrupt } from '@/components/canvas/live2d';
 import { useChatHistory } from '@/context/chat-history-context';
 
 export const useSidebar = () => {
-  const { open, onOpen, onClose } = useDisclosure();
+  const disclosure = useDisclosure();
   const { sendMessage } = useWebSocket();
   const { interrupt } = useInterrupt();
   const { currentHistoryUid, messages, updateHistoryList } = useChatHistory();
@@ -22,9 +22,9 @@ export const useSidebar = () => {
   };
 
   return {
-    settingsOpen: open,
-    onSettingsOpen: onOpen,
-    onSettingsClose: onClose,
+    settingsOpen: disclosure.open,
+    onSettingsOpen: disclosure.onOpen,
+    onSettingsClose: disclosure.onClose,
     createNewHistory,
   };
 };

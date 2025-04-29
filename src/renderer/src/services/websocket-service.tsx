@@ -1,3 +1,5 @@
+/* eslint-disable global-require */
+/* eslint-disable @typescript-eslint/no-var-requires */
 /* eslint-disable no-use-before-define */
 import { Subject } from 'rxjs';
 import { ModelInfo } from '@/context/live2d-config-context';
@@ -32,6 +34,12 @@ export interface Message {
   timestamp: string;
   name?: string;
   avatar?: string;
+
+  // Fields for different message types (make optional)
+  type?: 'text' | 'tool_call_status'; // Add possible types, default to 'text' if omitted
+  tool_id?: string; // Specific to tool calls
+  tool_name?: string; // Specific to tool calls
+  status?: 'running' | 'completed' | 'error'; // Specific to tool calls
 }
 
 export interface Actions {
@@ -41,6 +49,12 @@ export interface Actions {
 }
 
 export interface MessageEvent {
+  tool_id: any;
+  tool_name: any;
+  name: any;
+  status: any;
+  content: string;
+  timestamp: string;
   type: string;
   audio?: string;
   volumes?: number[];
@@ -63,7 +77,33 @@ export interface MessageEvent {
   client_uid?: string;
   forwarded?: boolean;
   display_text?: DisplayText;
+  live2d_model?: string;
+  browser_view?: {
+    debuggerFullscreenUrl: string;
+    debuggerUrl: string;
+    pages: {
+      id: string;
+      url: string;
+      faviconUrl: string;
+      title: string;
+      debuggerUrl: string;
+      debuggerFullscreenUrl: string;
+    }[];
+    wsUrl: string;
+    sessionId?: string;
+  };
 }
+
+// Get translation function for error messages
+const getTranslation = () => {
+  try {
+    const i18next = require('i18next').default;
+    return i18next.t.bind(i18next);
+  } catch (e) {
+    // Fallback if i18next is not available
+    return (key: string) => key;
+  }
+};
 
 class WebSocketService {
   private static instance: WebSocketService;
@@ -122,7 +162,7 @@ class WebSocketService {
         } catch (error) {
           console.error('Failed to parse WebSocket message:', error);
           toaster.create({
-            title: `Failed to parse WebSocket message: ${error}`,
+            title: `${getTranslation()('error.failedParseWebSocket')}: ${error}`,
             type: "error",
             duration: 2000,
           });
@@ -151,7 +191,7 @@ class WebSocketService {
     } else {
       console.warn('WebSocket is not open. Unable to send message:', message);
       toaster.create({
-        title: 'WebSocket is not open.',
+        title: getTranslation()('error.websocketNotOpen'),
         type: 'error',
         duration: 2000,
       });

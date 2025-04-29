@@ -1,14 +1,16 @@
-import { Stack, createListCollection } from '@chakra-ui/react';
-import { useBgUrl } from '@/context/bgurl-context';
-import { settingStyles } from './setting-styles';
-import { useConfig } from '@/context/character-config-context';
-import { useGeneralSettings } from '@/hooks/sidebar/setting/use-general-settings';
-import { useWebSocket } from '@/context/websocket-context';
-import { SelectField, SwitchField, InputField } from './common';
+/* eslint-disable import/no-extraneous-dependencies */
+import { useTranslation } from "react-i18next";
+import { Stack, createListCollection } from "@chakra-ui/react";
+import { useBgUrl } from "@/context/bgurl-context";
+import { settingStyles } from "./setting-styles";
+import { useConfig } from "@/context/character-config-context";
+import { useGeneralSettings } from "@/hooks/sidebar/setting/use-general-settings";
+import { useWebSocket } from "@/context/websocket-context";
+import { SelectField, SwitchField, InputField } from "./common";
 
 interface GeneralProps {
-  onSave?: (callback: () => void) => () => void
-  onCancel?: (callback: () => void) => () => void
+  onSave?: (callback: () => void) => () => void;
+  onCancel?: (callback: () => void) => () => void;
 }
 
 // Data collection definition
@@ -18,16 +20,17 @@ const useCollections = () => {
 
   const languages = createListCollection({
     items: [
-      { label: 'English', value: 'en' },
-      { label: '中文', value: 'zh' },
+      { label: "English", value: "en" },
+      { label: "中文", value: "zh" },
     ],
   });
 
   const backgrounds = createListCollection({
-    items: backgroundFiles?.map((filename) => ({
-      label: String(filename),
-      value: `/bg/${filename}`,
-    })) || [],
+    items:
+      backgroundFiles?.map((filename) => ({
+        label: String(filename),
+        value: `/bg/${filename}`,
+      })) || [],
   });
 
   const characterPresets = createListCollection({
@@ -45,11 +48,10 @@ const useCollections = () => {
 };
 
 function General({ onSave, onCancel }: GeneralProps): JSX.Element {
+  const { t, i18n } = useTranslation();
   const bgUrlContext = useBgUrl();
   const { confName, setConfName } = useConfig();
-  const {
-    wsUrl, setWsUrl, baseUrl, setBaseUrl,
-  } = useWebSocket();
+  const { wsUrl, setWsUrl, baseUrl, setBaseUrl } = useWebSocket();
   const collections = useCollections();
 
   const {
@@ -71,24 +73,28 @@ function General({ onSave, onCancel }: GeneralProps): JSX.Element {
     onCancel,
   });
 
+  if (settings.language[0] !== i18n.language) {
+    handleSettingChange("language", [i18n.language]);
+  }
+
   return (
     <Stack {...settingStyles.common.container}>
       <SelectField
-        label="Language"
+        label={t("settings.general.language")}
         value={settings.language}
-        onChange={(value) => handleSettingChange('language', value)}
+        onChange={(value) => handleSettingChange("language", value)}
         collection={collections.languages}
-        placeholder="Select language"
+        placeholder={t("settings.general.language")}
       />
 
       <SwitchField
-        label="Use Camera Background"
+        label={t("settings.general.useCameraBackground")}
         checked={settings.useCameraBackground}
         onChange={handleCameraToggle}
       />
 
       <SwitchField
-        label="Show Subtitle"
+        label={t("settings.general.showSubtitle")}
         checked={showSubtitle}
         onChange={setShowSubtitle}
       />
@@ -96,41 +102,41 @@ function General({ onSave, onCancel }: GeneralProps): JSX.Element {
       {!settings.useCameraBackground && (
         <>
           <SelectField
-            label="Background Image"
+            label={t("settings.general.backgroundImage")}
             value={settings.selectedBgUrl}
-            onChange={(value) => handleSettingChange('selectedBgUrl', value)}
+            onChange={(value) => handleSettingChange("selectedBgUrl", value)}
             collection={collections.backgrounds}
-            placeholder="Select from available backgrounds"
+            placeholder={t("settings.general.backgroundImage")}
           />
 
           <InputField
-            label="Or enter a custom background URL"
+            label={t("settings.general.customBgUrl")}
             value={settings.customBgUrl}
-            onChange={(value) => handleSettingChange('customBgUrl', value)}
-            placeholder="Enter image URL"
+            onChange={(value) => handleSettingChange("customBgUrl", value)}
+            placeholder={t("settings.general.customBgUrlPlaceholder")}
           />
         </>
       )}
 
       <SelectField
-        label="Character Preset"
+        label={t("settings.general.characterPreset")}
         value={settings.selectedCharacterPreset}
         onChange={handleCharacterPresetChange}
         collection={collections.characterPresets}
-        placeholder={confName || 'Select character preset'}
+        placeholder={confName || t("settings.general.characterPreset")}
       />
 
       <InputField
-        label="WebSocket URL"
+        label={t("settings.general.wsUrl")}
         value={settings.wsUrl}
-        onChange={(value) => handleSettingChange('wsUrl', value)}
+        onChange={(value) => handleSettingChange("wsUrl", value)}
         placeholder="Enter WebSocket URL"
       />
 
       <InputField
-        label="Base URL"
+        label={t("settings.general.baseUrl")}
         value={settings.baseUrl}
-        onChange={(value) => handleSettingChange('baseUrl', value)}
+        onChange={(value) => handleSettingChange("baseUrl", value)}
         placeholder="Enter Base URL"
       />
     </Stack>

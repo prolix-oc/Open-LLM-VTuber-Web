@@ -1,3 +1,4 @@
+/* eslint-disable no-shadow */
 import { useRef, useState } from 'react';
 import { useCamera } from '@/context/camera-context';
 

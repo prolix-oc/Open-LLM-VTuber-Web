@@ -1,12 +1,15 @@
 /* eslint-disable */
 import { Box, Text } from "@chakra-ui/react";
 import { FiMonitor } from "react-icons/fi";
+import { useTranslation } from "react-i18next";
 import { Tooltip } from "@/components/ui/tooltip";
 import { sidebarStyles } from "./sidebar-styles";
 import { useCaptureScreen } from "@/hooks/sidebar/use-capture-screen";
 
 // Reusable components
 function ScreenIndicator() {
+  const { t } = useTranslation();
+  
   return (
     <Box color="red.500" display="flex" alignItems="center" gap={2}>
       <Box
@@ -16,12 +19,14 @@ function ScreenIndicator() {
         bg="red.500"
         animation="pulse 2s infinite"
       />
-      <Text fontSize="sm">Screen</Text>
+      <Text fontSize="sm">{t('sidebar.screen')}</Text>
     </Box>
   );
 }
 
 function ScreenPlaceholder() {
+  const { t } = useTranslation();
+  
   return (
     <Box
       position="absolute"
@@ -32,7 +37,7 @@ function ScreenPlaceholder() {
     >
       <FiMonitor size={24} />
       <Text color="whiteAlpha.600" fontSize="sm" textAlign="center">
-        Click to start screen capture
+        {t('footer.screenControl')}
       </Text>
     </Box>
   );
@@ -58,6 +63,7 @@ function VideoStream({
 }
 
 function ScreenPanel(): JSX.Element {
+  const { t } = useTranslation();
   const {
     videoRef,
     error,
@@ -78,8 +84,8 @@ function ScreenPanel(): JSX.Element {
         showArrow
         content={
           isStreaming
-            ? "Click to stop screen capture"
-            : "Click to start screen capture"
+            ? t('footer.screenStopping')
+            : t('footer.screenControl')
         }
         open={isHovering && !error}
       >

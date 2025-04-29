@@ -1,0 +1,134 @@
+{
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "settings": "Settings",
+    "close": "Close",
+    "accept": "Accept"
+  },
+  "eula": {
+    "title": "End User License Agreement (EULA)",
+    "agreement": "I have read and agree to the terms and conditions",
+    "languageSelector": "Language",
+    "acceptButton": "Accept"
+  },
+  "settings": {
+    "tabs": {
+      "general": "General",
+      "live2d": "Live2D",
+      "asr": "ASR",
+      "tts": "TTS",
+      "agent": "Agent",
+      "about": "About"
+    },
+    "general": {
+      "language": "Language",
+      "useCameraBackground": "Use Camera Background",
+      "showSubtitle": "Show Subtitle",
+      "backgroundImage": "Background Image",
+      "customBgUrlPlaceholder": "Enter image URL",
+      "customBgUrl": "Or enter a custom background URL",
+      "characterPreset": "Character Preset",
+      "wsUrl": "WebSocket URL",
+      "baseUrl": "Base URL"
+    },
+    "live2d": {
+      "pointerInteractive": "Pointer Interactive",
+      "scrollToResize": "Enable Scroll to Resize"
+    },
+    "asr": {
+      "autoStopMic": "Auto Stop Mic When AI Start Speaking",
+      "autoStartMicOnConvEnd": "Auto Start Mic When Conversation End",
+      "autoStartMicOn": "Auto Start Mic When AI Interrupted",
+      "positiveSpeechThreshold": "Speech Prob Threshold",
+      "negativeSpeechThreshold": "Negative Speech Threshold",
+      "redemptionFrames": "Redemption Frames"
+    },
+    "agent": {
+      "allowProactiveSpeak": "Allow AI to Speak Proactively",
+      "idleSecondsToSpeak": "Idle seconds allow AI to speak",
+      "allowButtonTrigger": "Prompt AI to Speak via Raise Hand Button"
+    },
+    "about": {
+      "title": "Open LLM VTuber Frontend",
+      "version": "Version",
+      "projectLinks": "Project Links",
+      "github": "GitHub",
+      "documentation": "Documentation",
+      "license": "License",
+      "frontend": "Frontend",
+      "nonCommercial": "Non-commercial use only",
+      "backend": "Backend",
+      "copyright": "Copyright"
+    }
+  },
+  "footer": {
+    "typeYourMessage": "Type your message...",
+    "cameraControl": "Click to start camera",
+    "cameraStopping": "Click to stop camera",
+    "screenControl": "Click to start screen capture",
+    "screenStopping": "Click to stop screen capture"
+  },
+  "sidebar": {
+    "camera": "Camera",
+    "screen": "Screen",
+    "browser": "Browser",
+    "live": "Live",
+    "noMessages": "No messages yet. Start a conversation!",
+    "noBrowserSession": "No active browser session",
+    "browserSession": "Browser Session"
+  },
+  "group": {
+    "management": "Group Management",
+    "yourUuid": "Your UUID",
+    "inviteMember": "Invite Member",
+    "enterMemberUuid": "Enter member UUID",
+    "invite": "Invite",
+    "members": "Members",
+    "you": "You",
+    "leaveGroup": "Leave Group",
+    "removeMember": "Remove Member",
+    "leave": "Leave"
+  },
+  "history": {
+    "chatHistoryList": "Chat History List",
+    "noMessages": "No messages"
+  },
+  "notification": {
+    "characterLoaded": "New Character Loaded",
+    "characterSwitched": "Character switched",
+    "historyLoaded": "History loaded",
+    "newConversation": "New Conversation Started",
+    "newChatHistory": "New chat history created",
+    "historyDeleteSuccess": "History deleted successfully",
+    "historyDeleteFail": "Failed to delete history"
+  },
+  "error": {
+    "cameraApiNotSupported": "Camera API is not supported on this device",
+    "noCameraFound": "No camera found on this device",
+    "failedStartCamera": "Failed to start camera",
+    "failedStartBackgroundCamera": "Failed to start background camera",
+    "failedStartScreenCapture": "Failed to start screen capture",
+    "failedStartVAD": "Failed to start VAD",
+    "llmCantHear": "The LLM can't hear you.",
+    "audioPlayback": "Audio playback error",
+    "enterValidUuid": "Please enter a valid UUID",
+    "cannotDeleteCurrentHistory": "Cannot delete current chat history",
+    "failedCapture": "Failed to capture {{source}} frame",
+    "failedParseWebSocket": "Failed to parse WebSocket message",
+    "websocketNotOpen": "WebSocket is not open."
+  },
+  "aiState": {
+    "idle": "idle",
+    "thinking-speaking": "thinking/speaking",
+    "interrupted": "interrupted",
+    "loading": "loading",
+    "listening": "listening",
+    "waiting": "waiting"
+  },
+  "wsStatus": {
+    "connected": "Connected",
+    "connecting": "Connecting",
+    "clickToReconnect": "Click to Reconnect"
+  }
+} 

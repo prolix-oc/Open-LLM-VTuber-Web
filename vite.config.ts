@@ -22,6 +22,10 @@ const createConfig = (outDir: string) => ({
         {
           src: normalizePath(path.resolve(__dirname, 'node_modules/onnxruntime-web/dist/*.wasm')),
           dest: './libs/'
+        },
+        {
+          src: normalizePath(path.resolve(__dirname, 'src/renderer/WebSDK/Core/live2dcubismcore.js')),
+          dest: './libs/'
         }
       ],
     }),
@@ -29,22 +33,30 @@ const createConfig = (outDir: string) => ({
   ],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src/renderer/src'),
+      "@": path.resolve(__dirname, "./src/renderer/src"),
+      "@framework": path.resolve(__dirname, "./src/renderer/WebSDK/Framework/src"),
+      "@cubismsdksamples": path.resolve(__dirname, "./src/renderer/WebSDK/src"),
+      "@motionsyncframework": path.resolve(
+        __dirname,
+        "./src/renderer/MotionSync/Framework/src",
+      ),
+      "@motionsync": path.resolve(__dirname, "./src/renderer/MotionSync/src"),
+      "/src": path.resolve(__dirname, "./src/renderer/src"),
     },
   },
-  root: path.join(__dirname, 'src/renderer'),
-  publicDir: path.join(__dirname, 'src/renderer/public'),
-  base: './',
+  root: path.join(__dirname, "src/renderer"),
+  publicDir: path.join(__dirname, "src/renderer/public"),
+  base: "./",
   server: {
     port: 3000,
   },
   build: {
     outDir: path.join(__dirname, outDir),
     emptyOutDir: true,
-    assetsDir: 'assets',
+    assetsDir: "assets",
     rollupOptions: {
       input: {
-        main: path.join(__dirname, 'src/renderer/index.html'),
+        main: path.join(__dirname, "src/renderer/index.html"),
       },
     },
   },

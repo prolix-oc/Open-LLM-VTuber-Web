@@ -304,6 +304,43 @@ export const sidebarStyles = {
     } as const,
   },
 
+  // Add Browser Panel Styles
+  browserPanel: {
+    container: {
+      width: '97%',
+      overflow: 'hidden',
+      px: 4,
+      minH: '240px',
+    },
+    header: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      mb: 4,
+    },
+    title: commonStyles.title,
+    browserContainer: {
+      ...commonStyles.panel,
+      width: '100%',
+      height: '240px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+      transition: 'all 0.2s',
+      cursor: 'pointer',
+      _hover: {
+        bg: 'whiteAlpha.100',
+      },
+    },
+    iframe: {
+      width: '100%',
+      height: '100%',
+      border: 'none',
+      borderRadius: '8px',
+    } as const,
+  },
+
   bottomTab: {
     container: {
       width: '97%',
@@ -403,6 +440,44 @@ export const sidebarStyles = {
       size: 'sm',
     },
   },
+
+  // Add styles for the Tool Call Indicator
+  toolCallIndicator: {
+    container: {
+      pl: '44px', // Indent to align with message content (avatar width + gap)
+      my: '1', // Reduced vertical margin (e.g., 4px if theme space 1 = 4px)
+      gap: 2,
+      width: '100%',
+      minHeight: '24px', // Ensure minimum height
+      display: 'flex', // Ensure display is flex
+      alignItems: 'center', // Keep vertical alignment
+      justifyContent: 'center', // Center items horizontally
+    },
+    icon: {
+      color: 'blue.300',
+      boxSize: '14px',
+    },
+    text: {
+      fontSize: 'xs',
+      color: 'whiteAlpha.700',
+      fontStyle: 'italic',
+    },
+    spinner: {
+      size: 'xs',
+      color: 'blue.300',
+      ml: 0,
+    },
+    completedIcon: {
+      color: 'green.300',
+      boxSize: '14px',
+      ml: 0,
+    },
+    errorIcon: {
+      color: 'red.300',
+      boxSize: '14px',
+      ml: 0,
+    },
+  },
 };
 
 export const chatPanelStyles = css`
@@ -413,7 +488,7 @@ export const chatPanelStyles = css`
   
   .cs-message {
     margin: 12px 0;
-    padding-top: 20px !important;
+    // padding-top: 20px !important;
   }
 
   .cs-message__content {

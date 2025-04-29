@@ -1,21 +1,26 @@
 import { useEffect } from 'react';
 import { Box, Text } from '@chakra-ui/react';
 import { FiCamera } from 'react-icons/fi';
+import { useTranslation } from 'react-i18next';
 import { Tooltip } from '@/components/ui/tooltip';
 import { sidebarStyles } from './sidebar-styles';
 import { useCameraPanel } from '@/hooks/sidebar/use-camera-panel';
 
 // Reusable components
 function LiveIndicator() {
+  const { t } = useTranslation();
+
   return (
     <Box color="red.500" display="flex" alignItems="center" gap={2}>
       <Box w="8px" h="8px" borderRadius="full" bg="red.500" animation="pulse 2s infinite" />
-      <Text fontSize="sm">Live</Text>
+      <Text fontSize="sm">{t('sidebar.live')}</Text>
     </Box>
   );
 }
 
 function CameraPlaceholder() {
+  const { t } = useTranslation();
+
   return (
     <Box
       position="absolute"
@@ -26,7 +31,7 @@ function CameraPlaceholder() {
     >
       <FiCamera size={24} />
       <Text color="whiteAlpha.600" fontSize="sm" textAlign="center">
-        Click to start camera
+        {t('footer.cameraControl')}
       </Text>
     </Box>
   );
@@ -53,6 +58,7 @@ function VideoStream({
 
 // Main component
 function CameraPanel(): JSX.Element {
+  const { t } = useTranslation();
   const {
     videoRef,
     error,
@@ -78,7 +84,7 @@ function CameraPanel(): JSX.Element {
 
       <Tooltip
         showArrow
-        content={isStreaming ? 'Click to stop camera' : 'Click to start camera'}
+        content={isStreaming ? t('footer.cameraStopping') : t('footer.cameraControl')}
         open={isHovering && !error}
       >
         <Box

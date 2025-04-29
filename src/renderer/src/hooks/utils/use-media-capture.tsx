@@ -1,4 +1,6 @@
+/* eslint-disable object-shorthand */
 import { useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useCamera } from '@/context/camera-context';
 import { useScreenCaptureContext } from '@/context/screen-capture-context';
 import { toaster } from "@/components/ui/toaster";
@@ -17,6 +19,7 @@ interface ImageData {
 }
 
 export function useMediaCapture() {
+  const { t } = useTranslation();
   const { stream: cameraStream } = useCamera();
   const { stream: screenStream } = useScreenCaptureContext();
 
@@ -49,13 +52,13 @@ export function useMediaCapture() {
     } catch (error) {
       console.error(`Error capturing ${source} frame:`, error);
       toaster.create({
-        title: `Failed to capture ${source} frame: ${error}`,
+        title: `${t('error.failedCapture', { source: source })}: ${error}`,
         type: 'error',
         duration: 2000,
       });
       return null;
     }
-  }, []);
+  }, [t]);
 
   const captureAllMedia = useCallback(async () => {
     const images: ImageData[] = [];

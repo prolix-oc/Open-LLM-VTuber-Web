@@ -1,4 +1,6 @@
+/* eslint-disable import/no-extraneous-dependencies */
 import { Stack } from '@chakra-ui/react';
+import { useTranslation } from 'react-i18next';
 import { settingStyles } from './setting-styles';
 import { useAgentSettings } from '@/hooks/sidebar/setting/use-agent-settings';
 import { SwitchField, NumberField } from './common';
@@ -9,6 +11,7 @@ interface AgentProps {
 }
 
 function Agent({ onSave, onCancel }: AgentProps): JSX.Element {
+  const { t } = useTranslation();
   const {
     settings,
     handleAllowProactiveSpeakChange,
@@ -19,14 +22,14 @@ function Agent({ onSave, onCancel }: AgentProps): JSX.Element {
   return (
     <Stack {...settingStyles.common.container}>
       <SwitchField
-        label="Allow AI to Speak Proactively"
+        label={t('settings.agent.allowProactiveSpeak')}
         checked={settings.allowProactiveSpeak}
         onChange={handleAllowProactiveSpeakChange}
       />
 
       {settings.allowProactiveSpeak && (
         <NumberField
-          label="Idle seconds allow AI to speak"
+          label={t('settings.agent.idleSecondsToSpeak')}
           value={settings.idleSecondsToSpeak}
           onChange={(value) => handleIdleSecondsChange(Number(value))}
           min={0}
@@ -36,7 +39,7 @@ function Agent({ onSave, onCancel }: AgentProps): JSX.Element {
       )}
 
       <SwitchField
-        label="Prompt AI to Speak via Raise Hand Button"
+        label={t('settings.agent.allowButtonTrigger')}
         checked={settings.allowButtonTrigger}
         onChange={handleAllowButtonTriggerChange}
       />

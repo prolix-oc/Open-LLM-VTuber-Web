@@ -1,3 +1,4 @@
+/* eslint-disable import/no-extraneous-dependencies */
 import {
   Tabs,
   Button,
@@ -11,6 +12,7 @@ import {
   DrawerCloseTrigger,
 } from '@chakra-ui/react';
 import { useState, useMemo, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { CloseButton } from '@/components/ui/close-button';
 
 import { settingStyles } from './setting-styles';
@@ -28,6 +30,7 @@ interface SettingUIProps {
 }
 
 function SettingUI({ open, onClose }: SettingUIProps): JSX.Element {
+  const { t } = useTranslation();
   const [saveHandlers, setSaveHandlers] = useState<(() => void)[]>([]);
   const [cancelHandlers, setCancelHandlers] = useState<(() => void)[]>([]);
   const [activeTab, setActiveTab] = useState('general');
@@ -101,7 +104,7 @@ function SettingUI({ open, onClose }: SettingUIProps): JSX.Element {
       <DrawerContent {...settingStyles.settingUI.drawerContent}>
         <DrawerHeader {...settingStyles.settingUI.drawerHeader}>
           <DrawerTitle {...settingStyles.settingUI.drawerTitle}>
-            Settings
+            {t('common.settings')}
           </DrawerTitle>
           <div {...settingStyles.settingUI.closeButton}>
             <DrawerCloseTrigger asChild onClick={handleCancel}>
@@ -122,37 +125,37 @@ function SettingUI({ open, onClose }: SettingUIProps): JSX.Element {
                 value="general"
                 {...settingStyles.settingUI.tabs.trigger}
               >
-                General
+                {t('settings.tabs.general')}
               </Tabs.Trigger>
               <Tabs.Trigger
                 value="live2d"
                 {...settingStyles.settingUI.tabs.trigger}
               >
-                Live2D
+                {t('settings.tabs.live2d')}
               </Tabs.Trigger>
               <Tabs.Trigger
                 value="asr"
                 {...settingStyles.settingUI.tabs.trigger}
               >
-                ASR
+                {t('settings.tabs.asr')}
               </Tabs.Trigger>
               <Tabs.Trigger
                 value="tts"
                 {...settingStyles.settingUI.tabs.trigger}
               >
-                TTS
+                {t('settings.tabs.tts')}
               </Tabs.Trigger>
               <Tabs.Trigger
                 value="agent"
                 {...settingStyles.settingUI.tabs.trigger}
               >
-                Agent
+                {t('settings.tabs.agent')}
               </Tabs.Trigger>
               <Tabs.Trigger
                 value="about"
                 {...settingStyles.settingUI.tabs.trigger}
               >
-                About
+                {t('settings.tabs.about')}
               </Tabs.Trigger>
             </Tabs.List>
 
@@ -162,10 +165,10 @@ function SettingUI({ open, onClose }: SettingUIProps): JSX.Element {
 
         <DrawerFooter>
           <Button colorPalette="red" onClick={handleCancel}>
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button colorPalette="blue" onClick={handleSave}>
-            Save
+            {t('common.save')}
           </Button>
         </DrawerFooter>
       </DrawerContent>

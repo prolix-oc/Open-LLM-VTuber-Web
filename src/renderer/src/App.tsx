@@ -1,75 +1,126 @@
+/* eslint-disable no-shadow */
 // import { StrictMode } from 'react';
-import {
-  Box, Flex, ChakraProvider, defaultSystem,
-} from '@chakra-ui/react';
-import { useState, useEffect } from 'react';
-import Canvas from './components/canvas/canvas';
-import Sidebar from './components/sidebar/sidebar';
-import Footer from './components/footer/footer';
-import { AiStateProvider } from './context/ai-state-context';
-import { Live2DConfigProvider } from './context/live2d-config-context';
-import { SubtitleProvider } from './context/subtitle-context';
-import { BgUrlProvider } from './context/bgurl-context';
-import { layoutStyles } from './layout';
-import WebSocketHandler from './services/websocket-handler';
-import { CameraProvider } from './context/camera-context';
-import { ChatHistoryProvider } from './context/chat-history-context';
-import { CharacterConfigProvider } from './context/character-config-context';
-import { Toaster } from './components/ui/toaster';
-import { VADProvider } from './context/vad-context';
-import { Live2D } from './components/canvas/live2d';
-import TitleBar from './components/electron/title-bar';
-import { Live2DModelProvider } from './context/live2d-model-context';
-import { InputSubtitle } from './components/electron/input-subtitle';
-import { ProactiveSpeakProvider } from './context/proactive-speak-context';
-import { ScreenCaptureProvider } from './context/screen-capture-context';
-import { GroupProvider } from './context/group-context';
+import { Box, Flex, ChakraProvider, defaultSystem } from "@chakra-ui/react";
+import { useState, useEffect, useRef } from "react";
+// import Canvas from './components/canvas/canvas'; // Likely unused now
+import Sidebar from "./components/sidebar/sidebar";
+import Footer from "./components/footer/footer";
+import { AiStateProvider } from "./context/ai-state-context";
+import { Live2DConfigProvider } from "./context/live2d-config-context";
+import { SubtitleProvider } from "./context/subtitle-context";
+import { BgUrlProvider } from "./context/bgurl-context";
+import { layoutStyles } from "./layout";
+import WebSocketHandler from "./services/websocket-handler";
+import { CameraProvider } from "./context/camera-context";
+import { ChatHistoryProvider } from "./context/chat-history-context";
+import { CharacterConfigProvider } from "./context/character-config-context";
+import { Toaster } from "./components/ui/toaster";
+import { VADProvider } from "./context/vad-context";
+import { Live2D } from "./components/canvas/live2d";
+import TitleBar from "./components/electron/title-bar";
+import { InputSubtitle } from "./components/electron/input-subtitle";
+import { ProactiveSpeakProvider } from "./context/proactive-speak-context";
+import { ScreenCaptureProvider } from "./context/screen-capture-context";
+import { GroupProvider } from "./context/group-context";
+import { BrowserProvider } from "./context/browser-context";
 // eslint-disable-next-line import/no-extraneous-dependencies, import/newline-after-import
 import "@chatscope/chat-ui-kit-styles/dist/default/styles.min.css";
+import Background from "./components/canvas/background";
+import WebSocketStatus from "./components/canvas/ws-status";
+import Subtitle from "./components/canvas/subtitle";
+import { EulaProvider } from "./context/eula-context";
+import { EulaModal } from "./components/ui/eula-modal";
+
 function App(): JSX.Element {
   const [showSidebar, setShowSidebar] = useState(true);
   const [isFooterCollapsed, setIsFooterCollapsed] = useState(false);
-  const [mode, setMode] = useState('window');
+  const [mode, setMode] = useState("window");
   const isElectron = window.api !== undefined;
-  useEffect(() => {
-    if (isElectron) {
-      window.electron.ipcRenderer.on('pre-mode-changed', (_event, newMode) => {
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            window.electron.ipcRenderer.send('renderer-ready-for-mode-change', newMode);
-          });
-        });
-      });
-    }
-  }, [isElectron]);
+  const live2dContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (isElectron) {
-      window.electron.ipcRenderer.on('mode-changed', (_event, newMode) => {
+    if (isElectron && window.electron) {
+      // Added check for window.electron
+      const handlePreModeChange = (_event: any, newMode: any) => {
+        // Added types
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            window.electron?.ipcRenderer.send(
+              "renderer-ready-for-mode-change",
+              newMode,
+            );
+          });
+        });
+      };
+      const handleModeChanged = (_event: any, newMode: any) => {
+        // Added types
         setMode(newMode);
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
-            window.electron.ipcRenderer.send('mode-change-rendered');
+            window.electron?.ipcRenderer.send("mode-change-rendered");
           });
         });
-      });
+      };
+
+      window.electron.ipcRenderer.on("pre-mode-changed", handlePreModeChange);
+      window.electron.ipcRenderer.on("mode-changed", handleModeChanged);
+
+      return () => {
+        // Check again before removing listeners
+        if (window.electron) {
+          window.electron.ipcRenderer.removeListener(
+            "pre-mode-changed",
+            handlePreModeChange,
+          );
+          window.electron.ipcRenderer.removeListener(
+            "mode-changed",
+            handleModeChanged,
+          );
+        }
+      };
     }
+    return undefined;
   }, [isElectron]);
 
   useEffect(() => {
     const handleResize = () => {
       const vh = window.innerHeight * 0.01;
-      document.documentElement.style.setProperty('--vh', `${vh}px`);
+      document.documentElement.style.setProperty("--vh", `${vh}px`);
     };
-
     handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
+
+  const live2dBaseStyle = {
+    position: "absolute" as const,
+    overflow: "hidden",
+    transition: "all 0.3s ease-in-out", // Optional transition
+  };
+
+  const live2dWindowStyle = {
+    ...live2dBaseStyle,
+    top: isElectron ? "30px" : "0px",
+    left: showSidebar ? "440px" : "24px",
+    width: `calc(100% - ${showSidebar ? "440px" : "24px"})`,
+    height: `calc(100% - ${isElectron ? "30px" : "0px"})`,
+    zIndex: 5,
+    pointerEvents: "auto" as const,
+  };
+
+  const live2dPetStyle = {
+    ...live2dBaseStyle,
+    top: 0,
+    left: 0,
+    width: "100vw",
+    height: "100vh",
+    zIndex: 15,
+    pointerEvents: "auto" as const,
+  };
 
   return (
     <ChakraProvider value={defaultSystem}>
-      <Live2DModelProvider>
+      <EulaProvider>
         <CameraProvider>
           <ScreenCaptureProvider>
             <CharacterConfigProvider>
@@ -81,50 +132,85 @@ function App(): JSX.Element {
                         <VADProvider>
                           <BgUrlProvider>
                             <GroupProvider>
-                              <WebSocketHandler>
-                                <Toaster />
-                                {mode === 'window' ? (
-                                  <>
-                                    {isElectron && <TitleBar />}
-                                    <Flex {...layoutStyles.appContainer}>
-                                      <Box
-                                        {...layoutStyles.sidebar}
-                                        {...(!showSidebar && { width: '24px' })}
-                                      >
-                                        <Sidebar
-                                          isCollapsed={!showSidebar}
-                                          onToggle={() => setShowSidebar(!showSidebar)}
-                                        />
-                                      </Box>
-                                      <Box {...layoutStyles.mainContent}>
-                                        {/* <Box {...layoutStyles.canvas}> */}
-                                        <Canvas />
-                                        {/* <InputSubtitle isPet={false} /> */}
-                                        {/* </Box> */}
+                              <BrowserProvider>
+                                <WebSocketHandler>
+                                  <Toaster />
+                                  <EulaModal />
+
+                                  {/* Render Live2D Persistently with correct style props */}
+                                  <Box
+                                    ref={live2dContainerRef}
+                                    {...(mode === "window"
+                                      ? live2dWindowStyle
+                                      : live2dPetStyle)}
+                                  >
+                                    <Live2D
+                                      isPet={mode === "pet"}
+                                      showSidebar={showSidebar}
+                                    />
+                                  </Box>
+
+                                  {/* Conditional Rendering of Window UI */}
+                                  {mode === "window" && (
+                                    <>
+                                      {isElectron && <TitleBar />}
+                                      {/* Apply styles by spreading */}
+                                      <Flex {...layoutStyles.appContainer}>
                                         <Box
-                                          {...layoutStyles.footer}
-                                          {...(isFooterCollapsed
-                                            && layoutStyles.collapsedFooter)}
+                                          {...layoutStyles.sidebar}
+                                          {...(!showSidebar && { width: "24px" })}
                                         >
-                                          <Footer
-                                            isCollapsed={isFooterCollapsed}
-                                            onToggle={() => setIsFooterCollapsed(
-                                              !isFooterCollapsed,
-                                            )}
+                                          <Sidebar
+                                            isCollapsed={!showSidebar}
+                                            onToggle={() => setShowSidebar(!showSidebar)}
                                           />
                                         </Box>
-                                      </Box>
-                                    </Flex>
-                                  </>
-                                ) : (
-                                  <>
-                                    <Live2D isPet={mode === 'pet'} />
-                                    {mode === 'pet' && (
-                                      <InputSubtitle isPet={mode === 'pet'} />
-                                    )}
-                                  </>
-                                )}
-                              </WebSocketHandler>
+                                        <Box {...layoutStyles.mainContent}>
+                                          <Background />
+                                          <Box
+                                            position="absolute"
+                                            top="20px"
+                                            left="20px"
+                                            zIndex={10}
+                                          >
+                                            <WebSocketStatus />
+                                          </Box>
+                                          <Box
+                                            position="absolute"
+                                            bottom={
+                                              isFooterCollapsed ? "39px" : "135px"
+                                            }
+                                            left="50%"
+                                            transform="translateX(-50%)"
+                                            zIndex={10}
+                                            width="60%"
+                                          >
+                                            <Subtitle />
+                                          </Box>
+                                          <Box
+                                            {...layoutStyles.footer}
+                                            zIndex={10}
+                                            {...(isFooterCollapsed &&
+                                              layoutStyles.collapsedFooter)}
+                                          >
+                                            <Footer
+                                              isCollapsed={isFooterCollapsed}
+                                              onToggle={() => setIsFooterCollapsed(
+                                                !isFooterCollapsed,
+                                              )}
+                                            />
+                                          </Box>
+                                        </Box>
+                                      </Flex>
+                                    </>
+                                  )}
+
+                                  {/* Conditional Rendering of Pet Mode UI */}
+                                  {mode === "pet" && (
+                                    <InputSubtitle isPet={mode === "pet"} />
+                                  )}
+                                </WebSocketHandler>
+                              </BrowserProvider>
                             </GroupProvider>
                           </BgUrlProvider>
                         </VADProvider>
@@ -136,7 +222,7 @@ function App(): JSX.Element {
             </CharacterConfigProvider>
           </ScreenCaptureProvider>
         </CameraProvider>
-      </Live2DModelProvider>
+      </EulaProvider>
     </ChakraProvider>
   );
 }

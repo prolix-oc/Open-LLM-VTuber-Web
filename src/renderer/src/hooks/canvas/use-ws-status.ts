@@ -3,7 +3,7 @@ import { useWebSocket } from '@/context/websocket-context';
 
 interface WSStatusInfo {
   color: string
-  text: string
+  textKey: string
   isDisconnected: boolean
   handleClick: () => void
 }
@@ -22,21 +22,21 @@ export const useWSStatus = () => {
       case 'OPEN':
         return {
           color: 'green.500',
-          text: 'Connected',
+          textKey: 'wsStatus.connected',
           isDisconnected: false,
           handleClick,
         };
       case 'CONNECTING':
         return {
           color: 'yellow.500',
-          text: 'Connecting',
+          textKey: 'wsStatus.connecting',
           isDisconnected: false,
           handleClick,
         };
       default:
         return {
           color: 'red.500',
-          text: 'Click to Reconnect',
+          textKey: 'wsStatus.clickToReconnect',
           isDisconnected: true,
           handleClick,
         };

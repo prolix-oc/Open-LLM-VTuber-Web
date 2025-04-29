@@ -1,3 +1,4 @@
+/* eslint-disable import/order */
 /* eslint-disable no-use-before-define */
 import { useState, useEffect } from 'react';
 import { BgUrlContextState } from '@/context/bgurl-context';
@@ -6,6 +7,7 @@ import { useSubtitle } from '@/context/subtitle-context';
 import { useCamera } from '@/context/camera-context';
 import { useSwitchCharacter } from '@/hooks/utils/use-switch-character';
 import { useConfig } from '@/context/character-config-context';
+import i18n from 'i18next';
 
 interface GeneralSettings {
   language: string[]
@@ -55,14 +57,20 @@ export const useGeneralSettings = ({
     return path.startsWith('/bg/') ? [path] : [];
   };
 
+  const getCurrentCharacterFilename = (): string[] => {
+    if (!confName) return [];
+    const filename = getFilenameByName(confName);
+    return filename ? [filename] : [];
+  };
+
   const initialSettings: GeneralSettings = {
-    language: ['en'],
+    language: [i18n.language || 'en'],
     customBgUrl: !bgUrlContext?.backgroundUrl?.includes('/bg/')
       ? bgUrlContext?.backgroundUrl || ''
       : '',
     selectedBgUrl: getCurrentBgKey(),
     backgroundUrl: bgUrlContext?.backgroundUrl || '',
-    selectedCharacterPreset: [],
+    selectedCharacterPreset: getCurrentCharacterFilename(),
     useCameraBackground: bgUrlContext?.useCameraBackground || false,
     wsUrl: wsUrl || defaultWsUrl,
     baseUrl: baseUrl || defaultBaseUrl,
@@ -84,16 +92,24 @@ export const useGeneralSettings = ({
 
     onWsUrlChange(settings.wsUrl);
     onBaseUrlChange(settings.baseUrl);
+
+    // Apply language change if it differs from current language
+    if (settings.language && settings.language[0] && settings.language[0] !== i18n.language) {
+      i18n.changeLanguage(settings.language[0]);
+    }
   }, [settings]);
 
   useEffect(() => {
     if (confName) {
-      const newSettings = {
-        ...settings,
-        selectedCharacterPreset: [confName],
-      };
-      setSettings(newSettings);
-      setOriginalSettings(newSettings);
+      const filename = getFilenameByName(confName);
+      if (filename) {
+        const newSettings = {
+          ...settings,
+          selectedCharacterPreset: [filename],
+        };
+        setSettings(newSettings);
+        setOriginalSettings(newSettings);
+      }
     }
   }, [confName]);
 
@@ -126,6 +142,10 @@ export const useGeneralSettings = ({
     }
     if (key === 'baseUrl') {
       onBaseUrlChange(value as string);
+    }
+    // Immediately change language when it's updated
+    if (key === 'language' && Array.isArray(value) && value.length > 0) {
+      i18n.changeLanguage(value[0]);
     }
   };
 

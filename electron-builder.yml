@@ -1,5 +1,5 @@
 appId: com.electron.app
-productName: open-llm-vtuber-electron
+productName: "Open LLM Vtuber"
 directories:
   buildResources: resources
   output: release/${version}
@@ -16,9 +16,10 @@ files:
 asarUnpack:
   - resources/**
 win:
-  executableName: open-llm-vtuber-electron
+  executableName: Open LLM Vtuber
   icon: resources/icon.ico
 nsis:
+  license: EULA.txt
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
@@ -45,7 +46,9 @@ appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
 publish:
-  provider: github
-  releaseType: release
+  provider: s3
+  bucket: open-llm-vtuber-frontend
+  region: ap-northeast-1
+  acl: null
 electronDownload:
   mirror: https://npmmirror.com/mirrors/electron/

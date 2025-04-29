@@ -1,5 +1,6 @@
 import { Box, Button, IconButton, Input, Text } from "@chakra-ui/react";
 import { FiX } from "react-icons/fi";
+import { useTranslation } from "react-i18next";
 import {
   DrawerRoot,
   DrawerTrigger,
@@ -22,6 +23,7 @@ interface GroupDrawerProps {
 }
 
 function GroupDrawer({ children }: GroupDrawerProps) {
+  const { t } = useTranslation();
   const { selfUid, sortedGroupMembers, isOwner } = useGroup();
   const {
     isOpen,
@@ -50,7 +52,7 @@ function GroupDrawer({ children }: GroupDrawerProps) {
       <DrawerContent style={sidebarStyles.historyDrawer.drawer.content}>
         <DrawerHeader>
           <DrawerTitle style={sidebarStyles.historyDrawer.drawer.title}>
-            Group Management
+            {t('group.management')}
           </DrawerTitle>
           <DrawerCloseTrigger
             style={sidebarStyles.historyDrawer.drawer.closeButton}
@@ -60,7 +62,7 @@ function GroupDrawer({ children }: GroupDrawerProps) {
         <DrawerBody>
           <Box {...sidebarStyles.historyDrawer.listContainer}>
             <Box {...sidebarStyles.groupDrawer.section}>
-              <Text {...sidebarStyles.groupDrawer.sectionTitle}>Your UUID</Text>
+              <Text {...sidebarStyles.groupDrawer.sectionTitle}>{t('group.yourUuid')}</Text>
               <Box {...sidebarStyles.groupDrawer.memberItem}>
                 <Text {...sidebarStyles.groupDrawer.memberText}>{selfUid}</Text>
                 <ClipboardRoot value={selfUid}>
@@ -74,44 +76,44 @@ function GroupDrawer({ children }: GroupDrawerProps) {
 
             <Box {...sidebarStyles.groupDrawer.section}>
               <Text {...sidebarStyles.groupDrawer.sectionTitle}>
-                Invite Member From Other Clients
+                {t('group.inviteMember')}
               </Text>
               <Box {...sidebarStyles.groupDrawer.inviteBox}>
                 <Input
                   value={inviteUid}
                   onChange={(e) => setInviteUid(e.target.value)}
-                  placeholder="Enter member UUID"
+                  placeholder={t('group.enterMemberUuid')}
                   {...sidebarStyles.groupDrawer.input}
                 />
                 <Button
                   onClick={handleInvite}
                   {...sidebarStyles.groupDrawer.button}
                 >
-                  Invite
+                  {t('group.invite')}
                 </Button>
               </Box>
             </Box>
 
             <Box {...sidebarStyles.groupDrawer.section}>
-              <Text {...sidebarStyles.groupDrawer.sectionTitle}>Members</Text>
+              <Text {...sidebarStyles.groupDrawer.sectionTitle}>{t('group.members')}</Text>
               <Box {...sidebarStyles.groupDrawer.memberList}>
                 {sortedGroupMembers.map((memberId) => (
                   <Box key={memberId} {...sidebarStyles.groupDrawer.memberItem}>
                     <Text {...sidebarStyles.groupDrawer.memberText}>
-                      {memberId === selfUid ? `${memberId} (You)` : memberId}
+                      {memberId === selfUid ? `${memberId} (${t('group.you')})` : memberId}
                     </Text>
                     {((isOwner && memberId !== selfUid) ||
                       (!isOwner && memberId === selfUid)) && (
                       <IconButton
-                        aria-label={memberId === selfUid ? "Leave group" : "Remove member"}
+                        aria-label={memberId === selfUid ? t('group.leaveGroup') : t('group.removeMember')}
                         onClick={() => (memberId === selfUid
                           ? handleLeaveGroup(selfUid)
                           : handleRemove(memberId))}
                         {...sidebarStyles.groupDrawer.removeButton}
                         size="sm"
-                        title={memberId === selfUid ? "Leave group" : "Remove member"}
+                        title={memberId === selfUid ? t('group.leaveGroup') : t('group.removeMember')}
                       >
-                        {memberId === selfUid ? "Leave" : <FiX />}
+                        {memberId === selfUid ? t('group.leave') : <FiX />}
                       </IconButton>
                     )}
                   </Box>
@@ -124,7 +126,7 @@ function GroupDrawer({ children }: GroupDrawerProps) {
         <DrawerFooter>
           <DrawerActionTrigger asChild>
             <Button {...sidebarStyles.historyDrawer.drawer.actionButton}>
-              Close
+              {t('common.close')}
             </Button>
           </DrawerActionTrigger>
         </DrawerFooter>

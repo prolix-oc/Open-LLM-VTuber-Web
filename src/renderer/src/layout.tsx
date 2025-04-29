@@ -1,4 +1,5 @@
 const isElectron = window.api !== undefined;
+const isMac = isElectron && window.electron?.process.platform === 'darwin';
 
 const getAppHeight = () => {
   if (typeof window !== 'undefined' && /Mobi|Android/i.test(navigator.userAgent)) {
@@ -6,6 +7,8 @@ const getAppHeight = () => {
   }
   return isElectron ? 'calc(100vh - 30px)' : '100vh';
 };
+
+
 
 export const layoutStyles = {
   appContainer: {
@@ -17,6 +20,7 @@ export const layoutStyles = {
     position: 'relative',
     display: 'flex',
     flexDirection: { base: 'column', md: 'row' },
+    mt: isElectron ? '30px' : '0',
   },
   sidebar: {
     position: 'relative' as const,
@@ -86,20 +90,30 @@ export const layoutStyles = {
     transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
   },
   windowsTitleBar: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    width: '100vw',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
     height: '30px',
     backgroundColor: 'gray.800',
     paddingX: '10px',
+    zIndex: 1000,
     css: { '-webkit-app-region': 'drag' },
   },
   macTitleBar: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    width: '100vw',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     height: '30px',
     backgroundColor: 'gray.800',
+    zIndex: 1000,
     css: {
       '-webkit-app-region': 'drag',
       '-webkit-user-select': 'none',

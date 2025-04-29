@@ -38,16 +38,11 @@ export const canvasStyles = {
   },
   subtitle: {
     container: {
-      position: 'absolute',
-      bottom: '30px',
-      left: '50%',
-      transform: 'translateX(-50%)',
       backgroundColor: 'rgba(0, 0, 0, 0.7)',
       padding: '15px 30px',
       borderRadius: '12px',
       minWidth: '60%',
       maxWidth: '95%',
-      zIndex: 2,
     },
     text: {
       color: 'white',
@@ -59,9 +54,9 @@ export const canvasStyles = {
   },
   wsStatus: {
     container: {
-      position: 'absolute',
-      top: '20px',
-      left: '20px',
+      position: 'relative',
+      // top: '20px',
+      // left: '20px',
       zIndex: 2,
       padding: '8px 16px',
       borderRadius: '20px',

@@ -2,6 +2,7 @@
 import {
   createContext, useContext, useRef, useCallback, useEffect, useReducer, useMemo,
 } from 'react';
+import { useTranslation } from 'react-i18next';
 import { MicVAD } from '@ricky0123/vad-web';
 import { useInterrupt } from '@/components/canvas/live2d';
 import { audioTaskQueue } from '@/utils/task-queue';
@@ -103,6 +104,7 @@ export const VADContext = createContext<VADState | null>(null);
  * @param {React.ReactNode} props.children - Child components
  */
 export function VADProvider({ children }: { children: React.ReactNode }) {
+  const { t } = useTranslation();
   // Refs for VAD instance and state
   const vadRef = useRef<MicVAD | null>(null);
   const previousTriggeredProbabilityRef = useRef(0);
@@ -240,8 +242,8 @@ export function VADProvider({ children }: { children: React.ReactNode }) {
     if (aiStateRef.current === 'interrupted' || aiStateRef.current === 'listening') {
       setAiStateRef.current('idle');
     }
-    setSubtitleTextRef.current("The LLM can't hear you.");
-  }, []);
+    setSubtitleTextRef.current(t('error.llmCantHear'));
+  }, [t]);
 
   /**
    * Update VAD settings and restart if active
@@ -266,8 +268,8 @@ export function VADProvider({ children }: { children: React.ReactNode }) {
       positiveSpeechThreshold: settings.positiveSpeechThreshold / 100,
       negativeSpeechThreshold: settings.negativeSpeechThreshold / 100,
       redemptionFrames: settings.redemptionFrames,
-      baseAssetPath: '/libs/',
-      onnxWASMBasePath: '/libs/',
+      baseAssetPath: './libs/',
+      onnxWASMBasePath: './libs/',
       onSpeechStart: handleSpeechStart,
       onFrameProcessed: handleFrameProcessed,
       onSpeechEnd: handleSpeechEnd,
@@ -294,12 +296,12 @@ export function VADProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('Failed to start VAD:', error);
       toaster.create({
-        title: `Failed to start VAD: ${error}`,
+        title: `${t('error.failedStartVAD')}: ${error}`,
         type: 'error',
         duration: 2000,
       });
     }
-  }, []);
+  }, [t]);
 
   /**
    * Stop microphone and VAD processing
