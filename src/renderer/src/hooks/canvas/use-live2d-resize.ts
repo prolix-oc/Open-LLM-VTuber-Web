@@ -201,27 +201,6 @@ export const useLive2DResize = ({
       const delegate = LAppDelegate.getInstance();
       if (delegate) {
         delegate.onResize();
-
-        const viewMatrix = new CubismMatrix44();
-        let scaleToApply: number;
-
-        if (!hasAppliedInitialScale.current) {
-          scaleToApply = modelInfo?.kScale || DEFAULT_SCALE;
-          lastScaleRef.current = scaleToApply;
-          targetScaleRef.current = scaleToApply;
-          hasAppliedInitialScale.current = true;
-        } else {
-          scaleToApply = lastScaleRef.current;
-        }
-
-        viewMatrix.scale(scaleToApply, scaleToApply);
-
-        const manager = LAppLive2DManager.getInstance();
-        if (manager) {
-          manager.setViewMatrix(viewMatrix);
-        } else {
-          console.warn('[Resize] LAppLive2DManager instance not found.');
-        }
       } else {
         console.warn('[Resize] LAppDelegate instance not found.');
       }
