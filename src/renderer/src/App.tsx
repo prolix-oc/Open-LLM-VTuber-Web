@@ -28,57 +28,14 @@ import "@chatscope/chat-ui-kit-styles/dist/default/styles.min.css";
 import Background from "./components/canvas/background";
 import WebSocketStatus from "./components/canvas/ws-status";
 import Subtitle from "./components/canvas/subtitle";
+import { ModeProvider, useMode } from "./context/mode-context";
 
-function App(): JSX.Element {
+function AppContent(): JSX.Element {
   const [showSidebar, setShowSidebar] = useState(true);
   const [isFooterCollapsed, setIsFooterCollapsed] = useState(false);
-  const [mode, setMode] = useState("window");
+  const { mode } = useMode();
   const isElectron = window.api !== undefined;
   const live2dContainerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (isElectron && window.electron) {
-      // Added check for window.electron
-      const handlePreModeChange = (_event: any, newMode: any) => {
-        // Added types
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            window.electron?.ipcRenderer.send(
-              "renderer-ready-for-mode-change",
-              newMode
-            );
-          });
-        });
-      };
-      const handleModeChanged = (_event: any, newMode: any) => {
-        // Added types
-        setMode(newMode);
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            window.electron?.ipcRenderer.send("mode-change-rendered");
-          });
-        });
-      };
-
-      window.electron.ipcRenderer.on("pre-mode-changed", handlePreModeChange);
-      window.electron.ipcRenderer.on("mode-changed", handleModeChanged);
-
-      return () => {
-        // Check again before removing listeners
-        if (window.electron) {
-          window.electron.ipcRenderer.removeListener(
-            "pre-mode-changed",
-            handlePreModeChange
-          );
-          window.electron.ipcRenderer.removeListener(
-            "mode-changed",
-            handleModeChanged
-          );
-        }
-      };
-    }
-    return undefined;
-  }, [isElectron]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -90,34 +47,129 @@ function App(): JSX.Element {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+    
+  document.documentElement.style.overflow = 'hidden';
+  document.body.style.overflow = 'hidden';
+  document.documentElement.style.height = '100%';
+  document.body.style.height = '100%';
+  document.documentElement.style.position = 'fixed';
+  document.body.style.position = 'fixed';
+  document.documentElement.style.width = '100%';
+  document.body.style.width = '100%';
+
+  // Define base style properties shared across modes/breakpoints
   const live2dBaseStyle = {
     position: "absolute" as const,
     overflow: "hidden",
     transition: "all 0.3s ease-in-out", // Optional transition
+    pointerEvents: "auto" as const,
   };
 
-  const live2dWindowStyle = {
+  // Define styles specifically for the "window" mode, using responsive syntax
+  const getResponsiveLive2DWindowStyle = (sidebarVisible: boolean) => ({
     ...live2dBaseStyle,
     top: isElectron ? "30px" : "0px",
-    left: showSidebar ? "440px" : "24px",
-    width: `calc(100% - ${showSidebar ? "440px" : "24px"})`,
     height: `calc(100% - ${isElectron ? "30px" : "0px"})`,
-    zIndex: 5,
-    pointerEvents: "auto" as const,
-  };
+    zIndex: 5, // Ensure it's layered correctly below UI but above background
+    left: {
+      base: "0px", // Column layout (base): Start from left edge
+      md: sidebarVisible ? "440px" : "24px", // Row layout (md+): Offset by sidebar width
+    },
+    width: {
+      base: "100%", // Column layout (base): Full width
+      md: `calc(100% - ${sidebarVisible ? "440px" : "24px"})`, // Row layout (md+): Adjust width based on sidebar
+    },
+  });
 
+  // Define styles specifically for the "pet" mode
   const live2dPetStyle = {
     ...live2dBaseStyle,
-    top: 0,
+    top: 0, // Override position for pet mode
     left: 0,
-    width: "100vw",
+    width: "100vw", // Full viewport
     height: "100vh",
-    zIndex: 15,
-    pointerEvents: "auto" as const,
+    zIndex: 15, // Higher zIndex for pet mode overlay
   };
 
   return (
+    <>
+      <Box
+        ref={live2dContainerRef}
+        // Apply styles conditionally based on mode
+        // Use the function to get dynamic responsive styles for window mode
+        {...(mode === "window"
+          ? getResponsiveLive2DWindowStyle(showSidebar)
+          : live2dPetStyle)}
+      >
+        <Live2D />
+      </Box>
+
+      {/* Conditional Rendering of Window UI */}
+      {mode === "window" && (
+        <>
+          {isElectron && <TitleBar />}
+          {/* Apply styles by spreading */}
+          <Flex {...layoutStyles.appContainer}>
+            <Box
+              {...layoutStyles.sidebar}
+              {...(!showSidebar && { width: "24px" })}
+            >
+              <Sidebar
+                isCollapsed={!showSidebar}
+                onToggle={() => setShowSidebar(!showSidebar)}
+              />
+            </Box>
+            <Box {...layoutStyles.mainContent}>
+              <Background />
+              <Box position="absolute" top="20px" left="20px" zIndex={10}>
+                <WebSocketStatus />
+              </Box>
+              <Box
+                position="absolute"
+                bottom={isFooterCollapsed ? "39px" : "135px"}
+                left="50%"
+                transform="translateX(-50%)"
+                zIndex={10}
+                width="60%"
+              >
+                <Subtitle />
+              </Box>
+              <Box
+                {...layoutStyles.footer}
+                zIndex={10}
+                {...(isFooterCollapsed && layoutStyles.collapsedFooter)}
+              >
+                <Footer
+                  isCollapsed={isFooterCollapsed}
+                  onToggle={() => setIsFooterCollapsed(!isFooterCollapsed)}
+                />
+              </Box>
+            </Box>
+          </Flex>
+        </>
+      )}
+
+      {/* Conditional Rendering of Pet Mode UI */}
+      {mode === "pet" && <InputSubtitle />}
+    </>
+  );
+}
+
+function App(): JSX.Element {
+  return (
     <ChakraProvider value={defaultSystem}>
+      {/* ModeProvider needs to wrap AppContent to provide mode to getGlobalStyles */}
+      <ModeProvider>
+        <AppWithGlobalStyles />
+      </ModeProvider>
+    </ChakraProvider>
+  );
+}
+
+// New component to access mode for global styles
+function AppWithGlobalStyles(): JSX.Element {
+  return (
+    <>
       <CameraProvider>
         <ScreenCaptureProvider>
           <CharacterConfigProvider>
@@ -132,83 +184,7 @@ function App(): JSX.Element {
                             <BrowserProvider>
                               <WebSocketHandler>
                                 <Toaster />
-
-                                {/* Render Live2D Persistently with correct style props */}
-                                <Box
-                                  ref={live2dContainerRef}
-                                  {...(mode === "window"
-                                    ? live2dWindowStyle
-                                    : live2dPetStyle)}
-                                >
-                                  <Live2D
-                                    isPet={mode === "pet"}
-                                    showSidebar={showSidebar}
-                                  />
-                                </Box>
-
-                                {/* Conditional Rendering of Window UI */}
-                                {mode === "window" && (
-                                  <>
-                                    {isElectron && <TitleBar />}
-                                    {/* Apply styles by spreading */}
-                                    <Flex {...layoutStyles.appContainer}>
-                                      <Box
-                                        {...layoutStyles.sidebar}
-                                        {...(!showSidebar && { width: "24px" })}
-                                      >
-                                        <Sidebar
-                                          isCollapsed={!showSidebar}
-                                          onToggle={() =>
-                                            setShowSidebar(!showSidebar)
-                                          }
-                                        />
-                                      </Box>
-                                      <Box {...layoutStyles.mainContent}>
-                                        <Background />
-                                        <Box
-                                          position="absolute"
-                                          top="20px"
-                                          left="20px"
-                                          zIndex={10}
-                                        >
-                                          <WebSocketStatus />
-                                        </Box>
-                                        <Box
-                                          position="absolute"
-                                          bottom={
-                                            isFooterCollapsed ? "39px" : "135px"
-                                          }
-                                          left="50%"
-                                          transform="translateX(-50%)"
-                                          zIndex={10}
-                                          width="60%"
-                                        >
-                                          <Subtitle />
-                                        </Box>
-                                        <Box
-                                          {...layoutStyles.footer}
-                                          zIndex={10}
-                                          {...(isFooterCollapsed &&
-                                            layoutStyles.collapsedFooter)}
-                                        >
-                                          <Footer
-                                            isCollapsed={isFooterCollapsed}
-                                            onToggle={() =>
-                                              setIsFooterCollapsed(
-                                                !isFooterCollapsed
-                                              )
-                                            }
-                                          />
-                                        </Box>
-                                      </Box>
-                                    </Flex>
-                                  </>
-                                )}
-
-                                {/* Conditional Rendering of Pet Mode UI */}
-                                {mode === "pet" && (
-                                  <InputSubtitle isPet={mode === "pet"} />
-                                )}
+                                <AppContent />
                               </WebSocketHandler>
                             </BrowserProvider>
                           </GroupProvider>
@@ -222,8 +198,8 @@ function App(): JSX.Element {
           </CharacterConfigProvider>
         </ScreenCaptureProvider>
       </CameraProvider>
-      x{" "}
-    </ChakraProvider>
+    </>
   );
 }
+
 export default App;

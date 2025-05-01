@@ -5,7 +5,7 @@ import { useEffect, useCallback, RefObject, useRef } from 'react';
 import { ModelInfo } from '@/context/live2d-config-context';
 import { LAppDelegate } from '../../../WebSDK/src/lappdelegate';
 import { LAppLive2DManager } from '../../../WebSDK/src/lapplive2dmanager';
-import { CubismMatrix44 } from '../../../WebSDK/Framework/src/math/cubismmatrix44';
+import { useMode } from '@/context/mode-context';
 
 // Constants for model scaling behavior
 const MIN_SCALE = 0.1;
@@ -16,7 +16,6 @@ const DEFAULT_SCALE = 1.0; // Default scale if not specified
 
 interface UseLive2DResizeProps {
   containerRef: RefObject<HTMLDivElement>;
-  isPet: boolean;
   modelInfo?: ModelInfo;
   showSidebar?: boolean; // Sidebar collapse state
 }
@@ -46,10 +45,11 @@ export const applyScale = (scale: number) => {
  */
 export const useLive2DResize = ({
   containerRef,
-  isPet,
   modelInfo,
   showSidebar,
 }: UseLive2DResizeProps) => {
+  const { mode } = useMode();
+  const isPet = mode === 'pet';
   const animationFrameIdRef = useRef<number | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const isResizingRef = useRef<boolean>(false);

@@ -4,7 +4,6 @@
   "description": "An Electron application with React and TypeScript",
   "main": "./out/main/index.js",
   "author": "example.com",
-  "type": "module",
   "homepage": "https://electron-vite.org",
   "scripts": {
     "format": "prettier --write .",

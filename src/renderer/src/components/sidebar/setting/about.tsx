@@ -5,7 +5,6 @@ import {
   Heading, 
   HStack,
   Icon,
-  VStack
 } from '@chakra-ui/react';
 import { useTranslation } from 'react-i18next';
 import { FaGithub, FaBook } from 'react-icons/fa';

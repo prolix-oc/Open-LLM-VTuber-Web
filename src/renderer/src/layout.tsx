@@ -1,5 +1,4 @@
 const isElectron = window.api !== undefined;
-const isMac = isElectron && window.electron?.process.platform === 'darwin';
 
 const getAppHeight = () => {
   if (typeof window !== 'undefined' && /Mobi|Android/i.test(navigator.userAgent)) {

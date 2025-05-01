@@ -9,9 +9,9 @@ import { ModelInfo } from "@/context/live2d-config-context";
 import { updateModelConfig } from '../../../WebSDK/src/lappdefine';
 import { LAppDelegate } from '../../../WebSDK/src/lappdelegate';
 import { initializeLive2D } from '@cubismsdksamples/main';
+import { useMode } from '@/context/mode-context';
 
 interface UseLive2DModelProps {
-  isPet: boolean;
   modelInfo: ModelInfo | undefined;
   canvasRef: RefObject<HTMLCanvasElement>;
 }
@@ -89,10 +89,11 @@ export const playAudioWithLipSync = (audioPath: string, modelIndex = 0): Promise
 });
 
 export const useLive2DModel = ({
-  isPet,
   modelInfo,
   canvasRef,
 }: UseLive2DModelProps) => {
+  const { mode } = useMode();
+  const isPet = mode === 'pet';
   const [isDragging, setIsDragging] = useState(false);
   const [position, setPosition] = useState<Position>({ x: 0, y: 0 });
   const dragStartPos = useRef<Position>({ x: 0, y: 0 }); // Screen coordinates at drag start

@@ -1,7 +1,7 @@
 /* eslint-disable no-shadow */
 /* eslint-disable no-underscore-dangle */
 /* eslint-disable @typescript-eslint/ban-ts-comment */
-import { memo, useRef, useEffect, useCallback } from "react";
+import { memo, useRef, useEffect } from "react";
 import { useLive2DConfig } from "@/context/live2d-config-context";
 import { useIpcHandlers } from "@/hooks/utils/use-ipc-handlers";
 import { useInterrupt } from "@/hooks/utils/use-interrupt";
@@ -11,37 +11,37 @@ import { useLive2DResize } from "@/hooks/canvas/use-live2d-resize";
 import { useAiState, AiStateEnum } from "@/context/ai-state-context";
 import { useLive2DExpression } from "@/hooks/canvas/use-live2d-expression";
 import { useForceIgnoreMouse } from "@/hooks/utils/use-force-ignore-mouse";
+import { useMode } from "@/context/mode-context";
 
 interface Live2DProps {
-  isPet: boolean;
   showSidebar?: boolean;
 }
 
 export const Live2D = memo(
-  ({ isPet, showSidebar }: Live2DProps): JSX.Element => {
+  ({ showSidebar }: Live2DProps): JSX.Element => {
     const { forceIgnoreMouse } = useForceIgnoreMouse();
     const { modelInfo } = useLive2DConfig();
+    const { mode } = useMode();
     const internalContainerRef = useRef<HTMLDivElement>(null);
     const { aiState } = useAiState();
     const { resetExpression, setExpression } = useLive2DExpression();
+    const isPet = mode === 'pet';
 
     // Get canvasRef from useLive2DResize
     const { canvasRef } = useLive2DResize({
       containerRef: internalContainerRef,
-      isPet,
       modelInfo,
       showSidebar,
     });
 
     // Pass canvasRef to useLive2DModel
     const { isDragging, handlers } = useLive2DModel({
-      isPet,
       modelInfo,
       canvasRef,
     });
 
     // Setup hooks
-    useIpcHandlers({ isPet });
+    useIpcHandlers();
     useInterrupt();
     useAudioTask();
 

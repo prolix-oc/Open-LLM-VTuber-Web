@@ -4,13 +4,16 @@ import { useMicToggle } from "./use-mic-toggle";
 import { useLive2DConfig } from "@/context/live2d-config-context";
 import { useSwitchCharacter } from "@/hooks/utils/use-switch-character";
 import { useForceIgnoreMouse } from "@/hooks/utils/use-force-ignore-mouse";
+import { useMode } from "@/context/mode-context";
 
-export function useIpcHandlers({ isPet }: { isPet: boolean }) {
+export function useIpcHandlers() {
   const { handleMicToggle } = useMicToggle();
   const { interrupt } = useInterrupt();
   const { modelInfo, setModelInfo } = useLive2DConfig();
   const { switchCharacter } = useSwitchCharacter();
   const { setForceIgnoreMouse } = useForceIgnoreMouse();
+  const { mode } = useMode();
+  const isPet = mode === 'pet';
 
   const micToggleHandler = useCallback(() => {
     handleMicToggle();

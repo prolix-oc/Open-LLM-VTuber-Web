@@ -1,12 +1,11 @@
 import { useState, useRef } from 'react';
-
+import { useMode } from '@/context/mode-context';
 interface Position {
   x: number
   y: number
 }
 
 interface UseDraggableProps {
-  isPet?: boolean
   componentId: string
 }
 
@@ -16,7 +15,9 @@ interface UseDraggableProps {
  * @param componentId - Unique identifier for the component
  * @returns Object containing refs and handlers for dragging functionality
  */
-export function useDraggable({ isPet = false, componentId }: UseDraggableProps) {
+export function useDraggable({ componentId }: UseDraggableProps) {
+  const { mode } = useMode();
+  const isPet = mode === 'pet';
   // Track if the element is currently being dragged
   const [isDragging, setIsDragging] = useState(false);
 

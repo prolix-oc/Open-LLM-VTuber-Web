@@ -15,12 +15,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { useInputSubtitle } from '@/hooks/electron/use-input-subtitle';
 import { useDraggable } from '@/hooks/electron/use-draggable';
 import { inputSubtitleStyles } from './electron-style';
+import { useMode } from '@/context/mode-context';
 
-interface InputSubtitleProps {
-  isPet?: boolean;
-}
-
-export function InputSubtitle({ isPet = false }: InputSubtitleProps) {
+export function InputSubtitle() {
   const {
     inputValue,
     handleInputChange,
@@ -36,6 +33,9 @@ export function InputSubtitle({ isPet = false }: InputSubtitleProps) {
     micOn,
   } = useInputSubtitle();
 
+  const { mode } = useMode();
+  const isPet = mode === 'pet';
+
   const {
     elementRef,
     isDragging,
@@ -43,7 +43,6 @@ export function InputSubtitle({ isPet = false }: InputSubtitleProps) {
     handleMouseEnter,
     handleMouseLeave,
   } = useDraggable({
-    isPet,
     componentId: 'input-subtitle',
   });
 

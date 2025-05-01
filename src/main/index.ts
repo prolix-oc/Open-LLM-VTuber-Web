@@ -18,6 +18,16 @@ function setupIPC(): void {
     }
   });
 
+  ipcMain.on("get-current-mode", (event) => {
+    event.returnValue = windowManager.getCurrentMode();
+  });
+
+  ipcMain.on("pre-mode-changed", (_event, newMode) => {
+    if (newMode === 'window' || newMode === 'pet') {
+      menuManager.setMode(newMode);
+    }
+  });
+
   ipcMain.on("window-minimize", () => {
     windowManager.getWindow()?.minimize();
   });

@@ -67,7 +67,7 @@ export class WindowManager {
         : join(__dirname, '../../resources/icon.png'),
       ...(isMac ? { titleBarStyle: 'hiddenInset' } : {}),
       webPreferences: {
-        preload: join(__dirname, '../preload/index.mjs'),
+        preload: join(__dirname, '../preload/index.js'),
         sandbox: false,
         contextIsolation: true,
         nodeIntegration: true,
@@ -319,5 +319,10 @@ export class WindowManager {
   // Get current force ignore state
   isForceIgnoreMouse(): boolean {
     return this.forceIgnoreMouse;
+  }
+
+  // Get current mode
+  getCurrentMode(): 'window' | 'pet' {
+    return this.currentMode;
   }
 }
