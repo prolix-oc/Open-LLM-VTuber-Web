@@ -6,12 +6,6 @@
     "close": "关闭",
     "accept": "接受"
   },
-  "eula": {
-    "title": "最终用户许可协议 (EULA)",
-    "agreement": "我已阅读并同意该条款和条件",
-    "languageSelector": "语言",
-    "acceptButton": "接受"
-  },
   "settings": {
     "tabs": {
       "general": "常规",
@@ -55,11 +49,8 @@
       "projectLinks": "项目链接",
       "github": "GitHub",
       "documentation": "文档",
-      "license": "许可证",
-      "frontend": "前端",
-      "nonCommercial": "仅限非商业使用",
-      "backend": "后端",
-      "copyright": "版权"
+      "copyright": "版权",
+      "viewLicense": "查看许可证"
     }
   },
   "footer": {

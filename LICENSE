@@ -1,42 +1,29 @@
-# Open-LLM-VTuber Open Source License
+Open-LLM-VTuber License 1.0
 
-Open-LLM-VTuber uses a modified version of the Apache License 2.0, with the following additional conditions:
+Copyright © 2025 Open LLM Vtuber. All rights reserved.
+
+This software is licensed under the Apache License Version 2.0 (the "Apache License"), subject to the following Additional Conditions.
+
+Additional Conditions
 
 1. Definitions
 
-"Software" means the Open-LLM-VTuber project and all its components, including but not limited to source code, executable files, web applications, desktop clients, documentation, and accompanying assets.
+"Software" refers to the Open-LLM-VTuber project and all of its associated components, including but not limited to source code, executable files, web applications, desktop clients, documentation, and accompanying assets.
 
-2. Terms of Use
+2. Permitted Uses (No Additional License Required)
 
-The software may be used in the following ways:
+You are granted permission to use the software freely, without requiring a commercial license, under the following circumstances:
 
-a. Free Use (no additional license required)
-- All non-commercial uses: personal use, education, academic research, non-profit activities, etc.
-- VTuber streaming activities: including commercial streaming and content creation (YouTube, Twitch, Bilibili, etc.) and generating revenue from such content
+Non-commercial Uses: Any non-commercial activity including, but not limited to, personal projects, educational purposes, academic research, and non-profit initiatives.
 
-b. Cases requiring a commercial license
-- Providing the software as a paid service
-- Integrating the software into commercial products for sale
-- Charging fees directly for software access/usage
-- Repackaging the software under a different name/brand for commercial sale
+VTuber Streaming and Content Creation: Activities involving VTuber streaming, content creation, broadcasting, and monetization on platforms such as YouTube, Twitch, Bilibili, or other streaming services, provided revenue primarily derives from content creation and not from direct sale, distribution, or subscription to the software itself.
 
-3. Attribution Requirements
+3. Uses Requiring a Commercial License
 
-When using this software, you must:
-- Not claim that you developed this software
-- Properly attribute the Open-LLM-VTuber project in VTuber/video content
-- Not remove or modify any copyright notices or attribution information
+You must obtain a separate commercial license from Open LLM Vtuber for any of the following uses:
 
-4. Contribution Terms
+Monetized Access or Hosting Services: Providing paid access to or hosting of the software—whether original, modified, or derivative—including SaaS, subscription models, pay-per-use, or paid downloads and installations.
 
-As a contributor, you agree that:
-- Open LLM Vtuber may adjust the terms of this license
-- Your contributed code may be used for commercial purposes
+Commercial Redistribution or Rebranding: Redistributing, repackaging, renaming, or otherwise commercially providing the software (original or modified versions) under any alternative brand, identity, or project name in exchange for payment or other commercial benefits.
 
-5. Disclaimer
-
-This software is provided "as is" without any express or implied warranties. Under no circumstances shall Open LLM Vtuber be liable for any damages resulting from the use of this software.
-
-Except for the above conditions, all other rights and restrictions follow the Apache License 2.0. The complete Apache License 2.0 can be found at http://www.apache.org/licenses/LICENSE-2.0.
-
-© 2025 Open LLM Vtuber. All rights reserved.
+Commercial Embedding or Integration: Incorporating this software, wholly or partially, into any commercial software, hardware, or physical product that is sold, licensed, or otherwise distributed for a fee.

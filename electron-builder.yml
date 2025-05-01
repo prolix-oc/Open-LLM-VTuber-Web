@@ -19,7 +19,6 @@ win:
   executableName: Open LLM Vtuber
   icon: resources/icon.ico
 nsis:
-  license: EULA.txt
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}

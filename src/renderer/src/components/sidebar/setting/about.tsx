@@ -25,9 +25,13 @@ function About(): JSX.Element {
 
   return (
     <Stack {...settingStyles.common.container} gap={3}>
-      <Heading size="md" mb={1}>{t('settings.about.title')}</Heading>
+      <Heading size="md" mb={1}>
+        {t("settings.about.title")}
+      </Heading>
       <Box>
-        <Text fontWeight="bold" mb={0}>{t('settings.about.version')}</Text>
+        <Text fontWeight="bold" mb={0}>
+          {t("settings.about.version")}
+        </Text>
         <Text>{appVersion}</Text>
       </Box>
       {/* <Box mt={1}>
@@ -36,36 +40,38 @@ function About(): JSX.Element {
       </Box> */}
       <Box borderTop="1px solid" borderColor="whiteAlpha.200" pt={2} mt={1} />
       <Box mt={1}>
-        <Text fontWeight="bold" mb={1}>{t('settings.about.projectLinks')}</Text>
+        <Text fontWeight="bold" mb={1}>
+          {t("settings.about.projectLinks")}
+        </Text>
         <HStack mt={1} gap={2}>
           <Button
             size="sm"
-            onClick={() => openExternalLink('https://github.com/Open-LLM-VTuber/Open-LLM-VTuber-Web')}
+            onClick={() =>
+              openExternalLink(
+                "https://github.com/Open-LLM-VTuber/Open-LLM-VTuber-Web"
+              )
+            }
           >
-            <Icon as={FaGithub} mr={2} /> {t('settings.about.github')}
+            <Icon as={FaGithub} mr={2} /> {t("settings.about.github")}
           </Button>
           <Button
             size="sm"
-            onClick={() => openExternalLink('https://docs.llmvtuber.com')}
+            onClick={() => openExternalLink("https://docs.llmvtuber.com")}
           >
-            <Icon as={FaBook} mr={2} /> {t('settings.about.documentation')}
+            <Icon as={FaBook} mr={2} /> {t("settings.about.documentation")}
           </Button>
         </HStack>
       </Box>
       <Box borderTop="1px solid" borderColor="whiteAlpha.200" pt={2} mt={1} />
       <Box mt={1}>
-        <Text fontWeight="bold" mb={1}>{t('settings.about.license')}</Text>
-        <VStack align="flex-start" gap={1}>
-          <Text>
-            <strong>{t('settings.about.frontend')}:</strong> {t('settings.about.nonCommercial')} (EULA)
-          </Text>
-          <Text>
-            <strong>{t('settings.about.backend')}:</strong> MIT License
-          </Text>
-        </VStack>
+        <Button size="xs" colorPalette="blue" onClick={() => openExternalLink("https://github.com/Open-LLM-VTuber/Open-LLM-VTuber-Web/blob/main/LICENSE")}>
+          {t("settings.about.viewLicense")}
+        </Button>
       </Box>
       <Box mt={1}>
-        <Text fontWeight="bold" mb={0}>{t('settings.about.copyright')}</Text>
+        <Text fontWeight="bold" mb={0}>
+          {t("settings.about.copyright")}
+        </Text>
         <Text>© {new Date().getFullYear()} Open LLM VTuber Team</Text>
       </Box>
     </Stack>

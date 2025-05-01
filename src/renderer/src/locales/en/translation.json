@@ -6,12 +6,6 @@
     "close": "Close",
     "accept": "Accept"
   },
-  "eula": {
-    "title": "End User License Agreement (EULA)",
-    "agreement": "I have read and agree to the terms and conditions",
-    "languageSelector": "Language",
-    "acceptButton": "Accept"
-  },
   "settings": {
     "tabs": {
       "general": "General",
@@ -56,10 +50,8 @@
       "github": "GitHub",
       "documentation": "Documentation",
       "license": "License",
-      "frontend": "Frontend",
-      "nonCommercial": "Non-commercial use only",
-      "backend": "Backend",
-      "copyright": "Copyright"
+      "copyright": "Copyright",
+      "viewLicense": "View License"
     }
   },
   "footer": {

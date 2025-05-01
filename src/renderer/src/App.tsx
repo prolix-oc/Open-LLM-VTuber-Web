@@ -28,8 +28,6 @@ import "@chatscope/chat-ui-kit-styles/dist/default/styles.min.css";
 import Background from "./components/canvas/background";
 import WebSocketStatus from "./components/canvas/ws-status";
 import Subtitle from "./components/canvas/subtitle";
-import { EulaProvider } from "./context/eula-context";
-import { EulaModal } from "./components/ui/eula-modal";
 
 function App(): JSX.Element {
   const [showSidebar, setShowSidebar] = useState(true);
@@ -47,7 +45,7 @@ function App(): JSX.Element {
           requestAnimationFrame(() => {
             window.electron?.ipcRenderer.send(
               "renderer-ready-for-mode-change",
-              newMode,
+              newMode
             );
           });
         });
@@ -70,11 +68,11 @@ function App(): JSX.Element {
         if (window.electron) {
           window.electron.ipcRenderer.removeListener(
             "pre-mode-changed",
-            handlePreModeChange,
+            handlePreModeChange
           );
           window.electron.ipcRenderer.removeListener(
             "mode-changed",
-            handleModeChanged,
+            handleModeChanged
           );
         }
       };
@@ -120,109 +118,111 @@ function App(): JSX.Element {
 
   return (
     <ChakraProvider value={defaultSystem}>
-      <EulaProvider>
-        <CameraProvider>
-          <ScreenCaptureProvider>
-            <CharacterConfigProvider>
-              <ChatHistoryProvider>
-                <AiStateProvider>
-                  <ProactiveSpeakProvider>
-                    <Live2DConfigProvider>
-                      <SubtitleProvider>
-                        <VADProvider>
-                          <BgUrlProvider>
-                            <GroupProvider>
-                              <BrowserProvider>
-                                <WebSocketHandler>
-                                  <Toaster />
-                                  <EulaModal />
+      <CameraProvider>
+        <ScreenCaptureProvider>
+          <CharacterConfigProvider>
+            <ChatHistoryProvider>
+              <AiStateProvider>
+                <ProactiveSpeakProvider>
+                  <Live2DConfigProvider>
+                    <SubtitleProvider>
+                      <VADProvider>
+                        <BgUrlProvider>
+                          <GroupProvider>
+                            <BrowserProvider>
+                              <WebSocketHandler>
+                                <Toaster />
 
-                                  {/* Render Live2D Persistently with correct style props */}
-                                  <Box
-                                    ref={live2dContainerRef}
-                                    {...(mode === "window"
-                                      ? live2dWindowStyle
-                                      : live2dPetStyle)}
-                                  >
-                                    <Live2D
-                                      isPet={mode === "pet"}
-                                      showSidebar={showSidebar}
-                                    />
-                                  </Box>
+                                {/* Render Live2D Persistently with correct style props */}
+                                <Box
+                                  ref={live2dContainerRef}
+                                  {...(mode === "window"
+                                    ? live2dWindowStyle
+                                    : live2dPetStyle)}
+                                >
+                                  <Live2D
+                                    isPet={mode === "pet"}
+                                    showSidebar={showSidebar}
+                                  />
+                                </Box>
 
-                                  {/* Conditional Rendering of Window UI */}
-                                  {mode === "window" && (
-                                    <>
-                                      {isElectron && <TitleBar />}
-                                      {/* Apply styles by spreading */}
-                                      <Flex {...layoutStyles.appContainer}>
+                                {/* Conditional Rendering of Window UI */}
+                                {mode === "window" && (
+                                  <>
+                                    {isElectron && <TitleBar />}
+                                    {/* Apply styles by spreading */}
+                                    <Flex {...layoutStyles.appContainer}>
+                                      <Box
+                                        {...layoutStyles.sidebar}
+                                        {...(!showSidebar && { width: "24px" })}
+                                      >
+                                        <Sidebar
+                                          isCollapsed={!showSidebar}
+                                          onToggle={() =>
+                                            setShowSidebar(!showSidebar)
+                                          }
+                                        />
+                                      </Box>
+                                      <Box {...layoutStyles.mainContent}>
+                                        <Background />
                                         <Box
-                                          {...layoutStyles.sidebar}
-                                          {...(!showSidebar && { width: "24px" })}
+                                          position="absolute"
+                                          top="20px"
+                                          left="20px"
+                                          zIndex={10}
                                         >
-                                          <Sidebar
-                                            isCollapsed={!showSidebar}
-                                            onToggle={() => setShowSidebar(!showSidebar)}
+                                          <WebSocketStatus />
+                                        </Box>
+                                        <Box
+                                          position="absolute"
+                                          bottom={
+                                            isFooterCollapsed ? "39px" : "135px"
+                                          }
+                                          left="50%"
+                                          transform="translateX(-50%)"
+                                          zIndex={10}
+                                          width="60%"
+                                        >
+                                          <Subtitle />
+                                        </Box>
+                                        <Box
+                                          {...layoutStyles.footer}
+                                          zIndex={10}
+                                          {...(isFooterCollapsed &&
+                                            layoutStyles.collapsedFooter)}
+                                        >
+                                          <Footer
+                                            isCollapsed={isFooterCollapsed}
+                                            onToggle={() =>
+                                              setIsFooterCollapsed(
+                                                !isFooterCollapsed
+                                              )
+                                            }
                                           />
                                         </Box>
-                                        <Box {...layoutStyles.mainContent}>
-                                          <Background />
-                                          <Box
-                                            position="absolute"
-                                            top="20px"
-                                            left="20px"
-                                            zIndex={10}
-                                          >
-                                            <WebSocketStatus />
-                                          </Box>
-                                          <Box
-                                            position="absolute"
-                                            bottom={
-                                              isFooterCollapsed ? "39px" : "135px"
-                                            }
-                                            left="50%"
-                                            transform="translateX(-50%)"
-                                            zIndex={10}
-                                            width="60%"
-                                          >
-                                            <Subtitle />
-                                          </Box>
-                                          <Box
-                                            {...layoutStyles.footer}
-                                            zIndex={10}
-                                            {...(isFooterCollapsed &&
-                                              layoutStyles.collapsedFooter)}
-                                          >
-                                            <Footer
-                                              isCollapsed={isFooterCollapsed}
-                                              onToggle={() => setIsFooterCollapsed(
-                                                !isFooterCollapsed,
-                                              )}
-                                            />
-                                          </Box>
-                                        </Box>
-                                      </Flex>
-                                    </>
-                                  )}
+                                      </Box>
+                                    </Flex>
+                                  </>
+                                )}
 
-                                  {/* Conditional Rendering of Pet Mode UI */}
-                                  {mode === "pet" && (
-                                    <InputSubtitle isPet={mode === "pet"} />
-                                  )}
-                                </WebSocketHandler>
-                              </BrowserProvider>
-                            </GroupProvider>
-                          </BgUrlProvider>
-                        </VADProvider>
-                      </SubtitleProvider>
-                    </Live2DConfigProvider>
-                  </ProactiveSpeakProvider>
-                </AiStateProvider>
-              </ChatHistoryProvider>
-            </CharacterConfigProvider>
-          </ScreenCaptureProvider>
-        </CameraProvider>
-      </EulaProvider>
+                                {/* Conditional Rendering of Pet Mode UI */}
+                                {mode === "pet" && (
+                                  <InputSubtitle isPet={mode === "pet"} />
+                                )}
+                              </WebSocketHandler>
+                            </BrowserProvider>
+                          </GroupProvider>
+                        </BgUrlProvider>
+                      </VADProvider>
+                    </SubtitleProvider>
+                  </Live2DConfigProvider>
+                </ProactiveSpeakProvider>
+              </AiStateProvider>
+            </ChatHistoryProvider>
+          </CharacterConfigProvider>
+        </ScreenCaptureProvider>
+      </CameraProvider>
+      x{" "}
     </ChakraProvider>
   );
 }
