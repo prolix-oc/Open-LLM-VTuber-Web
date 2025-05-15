@@ -6,9 +6,9 @@
 // @ts-nocheck
 import { useEffect, useRef, useCallback, useState, RefObject } from "react";
 import { ModelInfo } from "@/context/live2d-config-context";
-import { updateModelConfig } from '../../../WebSDK/src/lappdefine';
-import { LAppDelegate } from '../../../WebSDK/src/lappdelegate';
-import { initializeLive2D } from '@cubismsdksamples/main';
+import { updateModelConfig } from '../../../CubismSdkForWeb/src/lappdefine';
+import { LAppDelegate } from '../../../CubismSdkForWeb/src/lappdelegate';
+import { initializeLive2D } from '../../../CubismSdkForWeb/src/main';
 import { useMode } from '@/context/mode-context';
 
 interface UseLive2DModelProps {

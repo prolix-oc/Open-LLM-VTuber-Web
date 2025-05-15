@@ -6,16 +6,15 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/renderer/src/*"],
-      "@framework/*": ["src/renderer/WebSDK/Framework/src/*"],
-      "@cubismsdksamples/*": ["src/renderer/WebSDK/src/*"],
-      "@motionsyncframework/*": ["src/renderer/WebSDK/src/Framework/src/*"],
+      "@framework/*": ["src/renderer/CubismSdkForWeb/Framework/src/*ork/src/*"],
+      "@cubismsdksamplsrc/renderer/CubismSdkForWeb/src/*ismSdkForWeb/src/*"],
+      "@motionsysrc/renderer/CubismSdkForWeb/src/Framework/src/*kForWeb/src/Framework/src/*"],
       "@motionsync/*": ["src/renderer/MotionSync/motionsync/*"]
     }
   },
   "include": [
     "src/renderer/**/*.ts",
     "src/renderer/**/*.tsx",
-    "src/renderer/**/*.d.ts",
-    "src/renderer/WebSDK/src/**/*"
+    "srcsrc/renderer/CubismSdkForWeb/src/**/*rc/renderer/CubismSdkForWeb/src/**/*"
   ]
 }

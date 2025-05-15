@@ -1,7 +1,7 @@
 import { createRoot } from 'react-dom/client';
 import './index.css';
 import App from './App';
-import { LAppAdapter } from '../WebSDK/src/lappadapter';
+import { LAppAdapter } from '../CubismSdkForWeb/src/lappadapter';
 import './i18n';
 
 const originalConsoleWarn = console.warn;

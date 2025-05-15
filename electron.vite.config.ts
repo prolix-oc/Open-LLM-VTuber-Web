@@ -15,8 +15,8 @@ export default defineConfig({
     resolve: {
       alias: {
         '@': resolve('src/renderer/src'),
-        "@framework": resolve("src/renderer/WebSDK/Framework/src"),
-        "@cubismsdksamples": resolve("src/renderer/WebSDK/src"),
+        "@framework": resolve("src/renderer/CubismSdkForWeb/Framework/src"),
+        "@cubismsdksamples": resolve("src/renderer/CubismSdkForWeb/src"),
         "@motionsyncframework": resolve(
           "src/renderer/MotionSync/Framework/src",
         ),
@@ -44,7 +44,7 @@ export default defineConfig({
             dest: './libs/',
           },
           {
-            src: normalizePath(resolve(__dirname, 'src/renderer/WebSDK/Core/live2dcubismcore.js')),
+            src: normalizePath(resolve(__dirname, 'src/renderer/CubismSdkForWeb/Core/live2dcubismcore.js')),
             dest: './libs/'
           }
         ],

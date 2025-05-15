@@ -23,7 +23,7 @@ const createConfig = async (outDir: string) => ({
           dest: './libs/',
         },
         {
-          src: normalizePath(path.resolve(__dirname, 'src/renderer/WebSDK/Core/live2dcubismcore.js')),
+          src: normalizePath(path.resolve(__dirname, 'src/renderer/CubismSdkForWeb/Core/live2dcubismcore.js')),
           dest: './libs/',
         },
       ],
@@ -33,8 +33,8 @@ const createConfig = async (outDir: string) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src/renderer/src"),
-      "@framework": path.resolve(__dirname, "./src/renderer/WebSDK/Framework/src"),
-      "@cubismsdksamples": path.resolve(__dirname, "./src/renderer/WebSDK/src"),
+      "@framework": path.resolve(__dirname, "./src/renderer/CubismSdkForWeb/Framework/src"),
+      "@cubismsdksamples": path.resolve(__dirname, "./src/renderer/CubismSdkForWeb/src"),
       "@motionsyncframework": path.resolve(
         __dirname,
         "./src/renderer/MotionSync/Framework/src",
