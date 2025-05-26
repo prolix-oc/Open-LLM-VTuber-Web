@@ -222,7 +222,7 @@ export function VADProvider({ children }: { children: React.ReactNode }) {
     if (autoStopMicRef.current) {
       stopMic();
     } else {
-      console.log('Auto stop mic is on, keeping mic active');
+      console.log('Auto stop mic is OFF, keeping mic active');
     }
 
     setPreviousTriggeredProbability(0);
