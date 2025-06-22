@@ -1,6 +1,7 @@
 import {
   createContext, useContext, useState, useMemo, useEffect, useCallback,
 } from 'react';
+import { useLocalStorage } from '@/hooks/utils/use-local-storage';
 
 /**
  * Character configuration file interface
@@ -23,6 +24,8 @@ interface CharacterConfigState {
   setConfUid: (uid: string) => void;
   setConfigFiles: (files: ConfigFile[]) => void;
   getFilenameByName: (name: string) => string | undefined;
+  // Added method to restore character settings on startup
+  restoreCharacterSettings: () => Promise<void>;
 }
 
 /**
@@ -45,14 +48,77 @@ export const ConfigContext = createContext<CharacterConfigState | null>(null);
  * @param {React.ReactNode} props.children - Child components
  */
 export function CharacterConfigProvider({ children }: { children: React.ReactNode }) {
-  const [confName, setConfName] = useState<string>(DEFAULT_CONFIG.confName);
-  const [confUid, setConfUid] = useState<string>(DEFAULT_CONFIG.confUid);
+  // Persist character name and UID to localStorage
+  const [confName, setConfNameState] = useLocalStorage<string>('confName', DEFAULT_CONFIG.confName);
+  const [confUid, setConfUidState] = useLocalStorage<string>('confUid', DEFAULT_CONFIG.confUid);
   const [configFiles, setConfigFiles] = useState<ConfigFile[]>(DEFAULT_CONFIG.configFiles);
+  
+  // Track if we've attempted restoration to avoid infinite loops
+  const [hasAttemptedRestore, setHasAttemptedRestore] = useState(false);
 
   const getFilenameByName = useCallback(
     (name: string) => configFiles.find((config) => config.name === name)?.filename,
     [configFiles],
   );
+
+  // Enhanced setters that also update localStorage
+  const setConfName = useCallback((name: string) => {
+    setConfNameState(name);
+  }, [setConfNameState]);
+
+  const setConfUid = useCallback((uid: string) => {
+    setConfUidState(uid);
+  }, [setConfUidState]);
+
+  // Restore character settings on startup
+  const restoreCharacterSettings = useCallback(async () => {
+    if (hasAttemptedRestore) return;
+    
+    try {
+      // Check if we have persisted character settings
+      if (confName && confUid) {
+        console.log('Restoring character settings:', { confName, confUid });
+        
+        // Verify the character config still exists
+        const filename = getFilenameByName(confName);
+        if (filename && configFiles.length > 0) {
+          // Send message to backend to restore the character
+          const message = {
+            type: 'switch-config',
+            file: filename,
+          };
+          
+          // Check if WebSocket is available
+          if ((window as any).wsService?.sendMessage) {
+            (window as any).wsService.sendMessage(message);
+            console.log('Sent character restoration message:', message);
+          } else {
+            console.warn('WebSocket not available for character restoration');
+          }
+        } else {
+          console.warn('Character config not found, clearing persisted settings');
+          setConfName('');
+          setConfUid('');
+        }
+      }
+    } catch (error) {
+      console.error('Failed to restore character settings:', error);
+    } finally {
+      setHasAttemptedRestore(true);
+    }
+  }, [confName, confUid, configFiles, getFilenameByName, setConfName, setConfUid, hasAttemptedRestore]);
+
+  // Attempt to restore character settings when configFiles are loaded
+  useEffect(() => {
+    if (configFiles.length > 0 && confName && !hasAttemptedRestore) {
+      // Delay restoration to ensure WebSocket is ready
+      const timer = setTimeout(() => {
+        restoreCharacterSettings();
+      }, 1000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [configFiles, confName, hasAttemptedRestore, restoreCharacterSettings]);
 
   // Memoized context value
   const contextValue = useMemo(
@@ -64,8 +130,9 @@ export function CharacterConfigProvider({ children }: { children: React.ReactNod
       setConfUid,
       setConfigFiles,
       getFilenameByName,
+      restoreCharacterSettings,
     }),
-    [confName, confUid, configFiles, getFilenameByName],
+    [confName, confUid, configFiles, setConfName, setConfUid, getFilenameByName, restoreCharacterSettings],
   );
 
   useEffect(() => {

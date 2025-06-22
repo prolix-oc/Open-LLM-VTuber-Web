@@ -1,6 +1,7 @@
 import {
-  createContext, useState, useMemo, useContext, memo,
+  createContext, useState, useMemo, useContext, memo, useCallback,
 } from 'react';
+import { useLocalStorage } from '@/hooks/utils/use-local-storage';
 
 /**
  * Subtitle context state interface
@@ -18,6 +19,15 @@ interface SubtitleState {
 
   /** Toggle subtitle visibility */
   setShowSubtitle: (show: boolean) => void
+
+  /** Alias for showSubtitle (for backwards compatibility) */
+  showCaptions: boolean
+
+  /** Alias for setShowSubtitle (for backwards compatibility) */
+  setShowCaptions: (show: boolean) => void
+
+  /** Toggle captions function */
+  toggleCaptions: () => void
 }
 
 /**
@@ -41,9 +51,14 @@ export const SubtitleContext = createContext<SubtitleState | null>(null);
  * @param {React.ReactNode} props.children - Child components
  */
 export const SubtitleProvider = memo(({ children }: { children: React.ReactNode }) => {
-  // State management
+  // Use localStorage to persist caption visibility preference
+  const [showSubtitle, setShowSubtitle] = useLocalStorage<boolean>('showCaptions', true);
   const [subtitleText, setSubtitleText] = useState<string>(DEFAULT_SUBTITLE.text);
-  const [showSubtitle, setShowSubtitle] = useState<boolean>(true);
+
+  // Toggle function for captions
+  const toggleCaptions = useCallback(() => {
+    setShowSubtitle(prev => !prev);
+  }, [setShowSubtitle]);
 
   // Memoized context value
   const contextValue = useMemo(
@@ -52,8 +67,12 @@ export const SubtitleProvider = memo(({ children }: { children: React.ReactNode 
       setSubtitleText,
       showSubtitle,
       setShowSubtitle,
+      // Aliases for backwards compatibility
+      showCaptions: showSubtitle,
+      setShowCaptions: setShowSubtitle,
+      toggleCaptions,
     }),
-    [subtitleText, showSubtitle],
+    [subtitleText, showSubtitle, setShowSubtitle, toggleCaptions],
   );
 
   return (

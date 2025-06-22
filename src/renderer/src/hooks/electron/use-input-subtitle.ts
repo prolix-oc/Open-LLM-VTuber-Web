@@ -14,11 +14,9 @@ export function useInputSubtitle() {
     handleCompositionStart,
     handleCompositionEnd,
     handleSend,
-
   } = useTextInput();
 
   const { messages } = useChatHistory();
-  const { startMic, autoStartMicOn } = useVAD();
   const { handleMicToggle, micOn } = useMicToggle();
   const { aiState, setAiState } = useAiState();
   const { interrupt } = useInterrupt();
@@ -32,9 +30,9 @@ export function useInputSubtitle() {
 
   const handleInterrupt = () => {
     interrupt();
-    if (autoStartMicOn) {
-      startMic();
-    }
+    // REMOVED: No auto-restart logic - VAD continues as user configured it
+    // If user wants mic on, they enable it via toggle button
+    // VAD context now handles continuous listening automatically when enabled
   };
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {

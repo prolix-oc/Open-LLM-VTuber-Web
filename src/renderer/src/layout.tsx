@@ -31,7 +31,7 @@ export const layoutStyles = {
   },
   mainContent: {
     flex: 1,
-    height: { base: 'calc(100% - 120px)', md: '100%' },
+    height: { base: 'calc(100% - 160px)', md: '100%' },
     position: 'relative',
     display: 'flex',
     flexDirection: 'column',
@@ -49,7 +49,7 @@ export const layoutStyles = {
   },
   footer: {
     width: '100%',
-    height: { base: '100px', md: '120px' },
+    height: { base: '140px', md: '160px' },
     transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
     willChange: 'transform',
     position: 'relative',
@@ -68,7 +68,7 @@ export const layoutStyles = {
     zIndex: 10,
   },
   canvasHeight: (isFooterCollapsed: boolean) => ({
-    height: isFooterCollapsed ? 'calc(100% - 24px)' : 'calc(100% - 120px)',
+    height: isFooterCollapsed ? 'calc(100% - 24px)' : 'calc(100% - 160px)',
   }),
   sidebarToggleButton: {
     position: 'absolute',
@@ -92,7 +92,7 @@ export const layoutStyles = {
     height: '30px',
     backgroundColor: 'gray.800',
     paddingX: '10px',
-    css: { '-webkit-app-region': 'drag' },
+    css: { WebkitAppRegion: 'drag' },
   },
   macTitleBar: {
     display: 'flex',
@@ -101,8 +101,8 @@ export const layoutStyles = {
     height: '30px',
     backgroundColor: 'gray.800',
     css: {
-      '-webkit-app-region': 'drag',
-      '-webkit-user-select': 'none',
+      WebkitAppRegion: 'drag',
+      WebkitUserSelect: 'none',
     },
   },
   titleBarTitle: {
@@ -118,14 +118,14 @@ export const layoutStyles = {
     size: 'sm',
     variant: 'ghost',
     color: 'whiteAlpha.800',
-    css: { '-webkit-app-region': 'no-drag' },
+    css: { WebkitAppRegion: 'no-drag' },
     _hover: { backgroundColor: 'whiteAlpha.200' },
   },
   closeButton: {
     size: 'sm',
     variant: 'ghost',
     color: 'whiteAlpha.800',
-    css: { '-webkit-app-region': 'no-drag' },
+    css: { WebkitAppRegion: 'no-drag' },
     _hover: { backgroundColor: 'red.500' },
   },
 } as const;

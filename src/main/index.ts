@@ -1,82 +1,329 @@
-/* eslint-disable no-shadow */
-import { app, ipcMain, globalShortcut, desktopCapturer } from "electron";
+// src/main/index.ts - Updated with Microphone Service Integration
+import {
+  app,
+  ipcMain,
+  globalShortcut,
+  BrowserWindow,
+  Menu,
+  dialog,
+  shell,
+} from "electron";
 import { electronApp, optimizer } from "@electron-toolkit/utils";
-import { WindowManager } from "./window-manager";
-import { MenuManager } from "./menu-manager";
+import { join } from "path";
+import fs from "fs/promises";
+import path from "path";
+import os from "os";
+import {
+  getWhisperService,
+  destroyWhisperService,
+  TranscriptionOptions,
+} from "./whisper-service";
 
-let windowManager: WindowManager;
-let menuManager: MenuManager;
+// 🧠 MEMORY OPTIMIZATION: Lazy OBS Integration Imports
+import { 
+  getOBSIntegration, 
+  initializeOBSIntegration, 
+  cleanupOBSIntegration 
+} from "./obs-integration";
+
+// 🎤 NEW: Microphone Service Integration
+import {
+  getMicrophoneServiceManager,
+  initializeMicrophoneService,
+  cleanupMicrophoneService
+} from "./microphone-service-manager";
+
+let mainWindow: BrowserWindow | null = null;
 let isQuitting = false;
 
-function setupIPC(): void {
-  ipcMain.handle("get-platform", () => process.platform);
+// 🧠 MEMORY OPTIMIZATION: Track initialization states
+let obsInitialized = false;
+let microphoneServiceInitialized = false;
 
-  ipcMain.on("set-ignore-mouse-events", (_event, ignore: boolean) => {
-    const window = windowManager.getWindow();
-    if (window) {
-      windowManager.setIgnoreMouseEvents(ignore);
+// Get the models directory path
+function getModelsDirectory(): string {
+  const documentsPath = path.join(os.homedir(), "Documents");
+  return path.join(documentsPath, "Enspira-VT", "Models");
+}
+
+// Get the backgrounds directory path
+function getBackgroundsDirectory(): string {
+  const documentsPath = path.join(os.homedir(), "Documents");
+  return path.join(documentsPath, "Enspira-VT", "Backgrounds");
+}
+
+interface ModelInfo {
+  name: string;
+  directory: string;
+  modelFile: string;
+  hasTextures: boolean;
+  hasMotions: boolean;
+}
+
+// 🧠 MEMORY OPTIMIZATION: Lazy OBS initialization function
+const ensureOBSInitialized = async (): Promise<void> => {
+  if (!obsInitialized) {
+    console.log('🎥 Lazy-initializing OBS integration on demand...');
+    try {
+      await initializeOBSIntegration();
+      obsInitialized = true;
+      console.log('✅ OBS integration lazy-initialized successfully');
+    } catch (error) {
+      console.error('❌ Failed to lazy-initialize OBS integration:', error);
+      throw error;
     }
-  });
+  }
+};
 
-  ipcMain.on("window-minimize", () => {
-    windowManager.getWindow()?.minimize();
-  });
-
-  ipcMain.on("window-maximize", () => {
-    const window = windowManager.getWindow();
-    if (window) {
-      windowManager.maximizeWindow();
+// 🎤 NEW: Ensure microphone service is initialized
+const ensureMicrophoneServiceInitialized = async (): Promise<void> => {
+  if (!microphoneServiceInitialized) {
+    console.log('🎤 Initializing microphone service...');
+    try {
+      await initializeMicrophoneService();
+      microphoneServiceInitialized = true;
+      console.log('✅ Microphone service initialized successfully');
+    } catch (error) {
+      console.error('❌ Failed to initialize microphone service:', error);
+      throw error;
     }
-  });
+  }
+};
 
-  ipcMain.on("window-close", () => {
-    const window = windowManager.getWindow();
-    if (window) {
-      if (process.platform === "darwin") {
-        window.hide();
-      } else {
-        window.close();
+async function ensureDirectoriesExist(): Promise<void> {
+  const modelsDir = getModelsDirectory();
+  const backgroundsDir = getBackgroundsDirectory();
+
+  try {
+    await fs.mkdir(modelsDir, { recursive: true });
+    await fs.mkdir(backgroundsDir, { recursive: true });
+    console.log("Created Enspira directories:", { modelsDir, backgroundsDir });
+  } catch (error) {
+    console.error("Failed to create Enspira directories:", error);
+  }
+}
+
+async function scanForModels(): Promise<ModelInfo[]> {
+  const modelsDir = getModelsDirectory();
+  const models: ModelInfo[] = [];
+
+  try {
+    const entries = await fs.readdir(modelsDir, { withFileTypes: true });
+
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        const modelDir = path.join(modelsDir, entry.name);
+        const modelInfo = await validateModelDirectory(modelDir, entry.name);
+
+        if (modelInfo) {
+          models.push(modelInfo);
+        }
       }
     }
+  } catch (error) {
+    console.error("Failed to scan models directory:", error);
+  }
+
+  return models.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+async function validateModelDirectory(
+  dirPath: string,
+  dirName: string
+): Promise<ModelInfo | null> {
+  try {
+    const files = await fs.readdir(dirPath);
+
+    // Look for .model3.json files
+    const modelFiles = files.filter((file) => file.endsWith(".model3.json"));
+
+    if (modelFiles.length === 0) {
+      return null;
+    }
+
+    // Check for textures and motions
+    const hasTextures = files.some(
+      (file) =>
+        file.endsWith(".png") || file.endsWith(".jpg") || file.endsWith(".jpeg")
+    );
+
+    const hasMotions = files.some(
+      (file) =>
+        file.endsWith(".motion3.json") ||
+        files.some((f) => f.toLowerCase().includes("motion"))
+    );
+
+    return {
+      name: dirName,
+      directory: dirPath,
+      modelFile: path.join(dirPath, modelFiles[0]),
+      hasTextures,
+      hasMotions,
+    };
+  } catch (error) {
+    console.error(`Failed to validate model directory ${dirPath}:`, error);
+    return null;
+  }
+}
+
+export function registerWhisperIPCHandlers(): void {
+  const whisperService = getWhisperService();
+
+  // Get available Whisper models
+  ipcMain.handle("whisper:get-available-models", async () => {
+    try {
+      return await whisperService.getAvailableModels();
+    } catch (error) {
+      console.error("Failed to get available Whisper models:", error);
+      return [];
+    }
   });
 
-  ipcMain.on(
-    "update-component-hover",
-    (_event, componentId: string, isHovering: boolean) => {
-      windowManager.updateComponentHover(componentId, isHovering);
-    },
+  // Check if a specific model exists and is supported
+  ipcMain.handle("whisper:check-model", async (_, modelName: string) => {
+    try {
+      return await whisperService.checkModel(modelName);
+    } catch (error) {
+      console.error("Failed to check Whisper model:", error);
+      return false;
+    }
+  });
+
+  // Transcribe audio using Whisper
+  ipcMain.handle(
+    "whisper:transcribe",
+    async (_, options: TranscriptionOptions) => {
+      try {
+        return await whisperService.transcribe(options);
+      } catch (error) {
+        console.error("Whisper transcription failed:", error);
+        throw error;
+      }
+    }
   );
 
-  ipcMain.handle("get-config-files", () => {
-    const configFiles = JSON.parse(localStorage.getItem("configFiles") || "[]");
-    menuManager.updateConfigFiles(configFiles);
-    return configFiles;
+  // Open the models directory
+  ipcMain.handle("whisper:open-models-directory", async () => {
+    try {
+      await whisperService.openModelsDirectory();
+      return true;
+    } catch (error) {
+      console.error("Failed to open models directory:", error);
+      return false;
+    }
   });
 
-  ipcMain.on("update-config-files", (_event, files) => {
-    menuManager.updateConfigFiles(files);
+  // Get the models directory path
+  ipcMain.handle("whisper:get-models-path", async () => {
+    try {
+      return whisperService.getModelsPath();
+    } catch (error) {
+      console.error("Failed to get models path:", error);
+      return null;
+    }
   });
 
-  ipcMain.handle('get-screen-capture', async () => {
-    const sources = await desktopCapturer.getSources({ types: ['screen'] });
-    return sources[0].id;
+  ipcMain.handle("whisper:set-active-status", (_, active: boolean) => {
+    console.log(`IPC: Setting local Whisper service active status to: ${active}`);
+    whisperService.setActiveStatus(active);
   });
 }
 
-app.whenReady().then(() => {
-  electronApp.setAppUserModelId("com.electron");
+// Call this before app quit to cleanup
+export function cleanupWhisperService(): void {
+  destroyWhisperService();
+}
 
-  windowManager = new WindowManager();
-  menuManager = new MenuManager((mode) => windowManager.setWindowMode(mode));
+async function scanForBackgrounds(): Promise<string[]> {
+  const backgroundsDir = getBackgroundsDirectory();
+  const backgrounds: string[] = [];
 
-  const window = windowManager.createWindow({
+  try {
+    const files = await fs.readdir(backgroundsDir);
+
+    for (const file of files) {
+      const ext = path.extname(file).toLowerCase();
+      if ([".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg"].includes(ext)) {
+        backgrounds.push(file);
+      }
+    }
+  } catch (error) {
+    console.error("Failed to scan backgrounds directory:", error);
+  }
+
+  return backgrounds.sort();
+}
+
+async function createFileBlob(filePath: string): Promise<string> {
+  try {
+    const buffer = await fs.readFile(filePath);
+    const base64 = buffer.toString("base64");
+    const mimeType = getFileMimeType(filePath);
+    return `data:${mimeType};base64,${base64}`;
+  } catch (error) {
+    throw new Error(`Failed to create blob from file: ${error}`);
+  }
+}
+
+function getFileMimeType(filePath: string): string {
+  const ext = path.extname(filePath).toLowerCase();
+  const mimeTypes: { [key: string]: string } = {
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+    ".svg": "image/svg+xml",
+  };
+  return mimeTypes[ext] || "application/octet-stream";
+}
+
+function createWindow(): BrowserWindow {
+  const window = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    minWidth: 800,
+    minHeight: 600,
+    titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "hidden",
     titleBarOverlay: {
       color: "#111111",
       symbolColor: "#FFFFFF",
       height: 30,
     },
+    webPreferences: {
+      preload: join(__dirname, "../preload/index.js"),
+      sandbox: false,
+      contextIsolation: true,
+      nodeIntegration: false,
+      webSecurity: false, // Allow loading local files for Live2D models
+    },
+    icon:
+      process.platform === "linux"
+        ? join(__dirname, "../../../resources/icon.png")
+        : undefined,
+    show: false,
+    backgroundColor: "#111111",
   });
-  menuManager.createTray();
+
+  window.webContents.setWindowOpenHandler((details) => {
+    const { shell } = require("electron");
+    shell.openExternal(details.url);
+    return { action: "deny" };
+  });
+
+  if (process.env.NODE_ENV === "development") {
+    window.loadURL("http://localhost:5173");
+    window.webContents.openDevTools();
+  } else {
+    window.loadFile(join(__dirname, "../renderer/index.html"));
+  }
+
+  window.once("ready-to-show", () => {
+    window.show();
+    // Send initial window state
+    window.webContents.send('window-maximized-change', window.isMaximized());
+    window.webContents.send('window-fullscreen-change', window.isFullScreen());
+  });
 
   window.on("close", (event) => {
     if (!isQuitting) {
@@ -86,15 +333,324 @@ app.whenReady().then(() => {
     return false;
   });
 
+  // Window state change handlers
+  window.on('maximize', () => {
+    window.webContents.send('window-maximized-change', true);
+  });
+
+  window.on('unmaximize', () => {
+    window.webContents.send('window-maximized-change', false);
+  });
+
+  window.on('enter-full-screen', () => {
+    window.webContents.send('window-fullscreen-change', true);
+  });
+
+  window.on('leave-full-screen', () => {
+    window.webContents.send('window-fullscreen-change', false);
+  });
+
+  window.on('resize', () => {
+    const bounds = window.getBounds();
+    const { width, height } = require('electron').screen.getPrimaryDisplay().workArea;
+    const isMaximized = bounds.width >= width && bounds.height >= height;
+    window.webContents.send('window-maximized-change', isMaximized);
+  });
+
+  return window;
+}
+
+function setupIPC(): void {
+  ipcMain.handle("get-platform", () => process.platform);
+
+  ipcMain.on("set-ignore-mouse-events", (_event, ignore: boolean) => {
+    if (mainWindow) {
+      mainWindow.setIgnoreMouseEvents(ignore);
+    }
+  });
+
+  // Component hover handlers (for pet mode)
+  ipcMain.on("update-component-hover", (_event, componentId: string, isHovering: boolean) => {
+    console.log(`Component ${componentId} hover: ${isHovering}`);
+  });
+
+  ipcMain.on("show-context-menu", () => {
+    console.log('Context menu requested');
+  });
+
+  // Mode change handlers
+  ipcMain.on("renderer-ready-for-mode-change", (_event, mode: string) => {
+    console.log(`Renderer ready for mode change to: ${mode}`);
+  });
+
+  ipcMain.on("mode-change-rendered", () => {
+    console.log('Mode change rendered');
+  });
+
+  ipcMain.on("toggle-force-ignore-mouse", () => {
+    console.log('Toggle force ignore mouse requested');
+  });
+
+  ipcMain.on("window-unfullscreen", () => {
+    if (mainWindow && mainWindow.isFullScreen()) {
+      mainWindow.setFullScreen(false);
+    }
+  });
+
+  ipcMain.on("window-minimize", () => {
+    mainWindow?.minimize();
+  });
+
+  ipcMain.on("window-maximize", () => {
+    if (mainWindow) {
+      if (mainWindow.isMaximized()) {
+        mainWindow.unmaximize();
+      } else {
+        mainWindow.maximize();
+      }
+    }
+  });
+
+  ipcMain.on("window-close", () => {
+    if (mainWindow) {
+      if (process.platform === "darwin") {
+        mainWindow.hide();
+      } else {
+        mainWindow.close();
+      }
+    }
+  });
+
+  // 🧠 MEMORY OPTIMIZATION: Lazy OBS initialization IPC handler
+  ipcMain.handle('obs:ensure-initialized', async () => {
+    try {
+      await ensureOBSInitialized();
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  // 🎤 NEW: Microphone service initialization IPC handler
+  ipcMain.handle('mic-service:ensure-initialized', async () => {
+    try {
+      await ensureMicrophoneServiceInitialized();
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Models directory operations
+  ipcMain.handle("get-models-directory", (): string => {
+    return getModelsDirectory();
+  });
+
+  ipcMain.handle("get-backgrounds-directory", (): string => {
+    return getBackgroundsDirectory();
+  });
+
+  ipcMain.handle("scan-models", async (): Promise<ModelInfo[]> => {
+    return scanForModels();
+  });
+
+  ipcMain.handle("scan-backgrounds", async (): Promise<string[]> => {
+    return scanForBackgrounds();
+  });
+
+  ipcMain.handle("open-models-directory", async (): Promise<void> => {
+    const modelsDir = getModelsDirectory();
+    await shell.openPath(modelsDir);
+  });
+
+  ipcMain.handle("open-backgrounds-directory", async (): Promise<void> => {
+    const backgroundsDir = getBackgroundsDirectory();
+    await shell.openPath(backgroundsDir);
+  });
+
+  ipcMain.handle("get-model-file-url", (_event, modelFile: string): string => {
+    // Return file:// URL for the model file
+    return `file://${modelFile}`;
+  });
+
+  ipcMain.handle(
+    "get-background-blob",
+    async (_event, filename: string): Promise<string> => {
+      const backgroundsDir = getBackgroundsDirectory();
+      const filePath = path.join(backgroundsDir, filename);
+      return createFileBlob(filePath);
+    }
+  );
+
+  // Legacy file operations (for compatibility)
+  ipcMain.handle(
+    "select-background-image",
+    async (): Promise<string | null> => {
+      if (!mainWindow) return null;
+
+      const result = await dialog.showOpenDialog(mainWindow, {
+        title: "Select Background Image",
+        message: "Choose an image file for the background",
+        properties: ["openFile", "dontAddToRecent"],
+        buttonLabel: "Select Image",
+        filters: [
+          {
+            name: "Image Files",
+            extensions: ["jpg", "jpeg", "png", "gif", "webp", "svg"],
+          },
+          {
+            name: "All Files",
+            extensions: ["*"],
+          },
+        ],
+      });
+
+      if (result.canceled || result.filePaths.length === 0) {
+        return null;
+      }
+
+      return result.filePaths[0];
+    }
+  );
+
+  ipcMain.handle(
+    "create-file-blob",
+    async (_event, filePath: string): Promise<string> => {
+      return createFileBlob(filePath);
+    }
+  );
+}
+
+function createAppMenu(): void {
+  const template: Electron.MenuItemConstructorOptions[] = [
+    {
+      label: "File",
+      submenu: [
+        {
+          label: "Open Models Folder",
+          accelerator:
+            process.platform === "darwin" ? "Cmd+Shift+M" : "Ctrl+Shift+M",
+          click: async () => {
+            const modelsDir = getModelsDirectory();
+            await shell.openPath(modelsDir);
+          },
+        },
+        {
+          label: "Open Backgrounds Folder",
+          accelerator:
+            process.platform === "darwin" ? "Cmd+Shift+B" : "Ctrl+Shift+B",
+          click: async () => {
+            const backgroundsDir = getBackgroundsDirectory();
+            await shell.openPath(backgroundsDir);
+          },
+        },
+        { type: "separator" },
+        {
+          label: "Quit",
+          accelerator: process.platform === "darwin" ? "Cmd+Q" : "Ctrl+Q",
+          click: () => {
+            isQuitting = true;
+            app.quit();
+          },
+        },
+      ],
+    },
+    {
+      label: "Edit",
+      submenu: [
+        { role: "undo" },
+        { role: "redo" },
+        { type: "separator" },
+        { role: "cut" },
+        { role: "copy" },
+        { role: "paste" },
+      ],
+    },
+    {
+      label: "View",
+      submenu: [
+        { role: "reload" },
+        { role: "forceReload" },
+        { role: "toggleDevTools" },
+        { type: "separator" },
+        { role: "resetZoom" },
+        { role: "zoomIn" },
+        { role: "zoomOut" },
+        { type: "separator" },
+        { role: "togglefullscreen" },
+      ],
+    },
+    {
+      label: "Window",
+      submenu: [{ role: "minimize" }, { role: "close" }],
+    },
+  ];
+
+  if (process.platform === "darwin") {
+    template.unshift({
+      label: "Enspira",
+      submenu: [
+        { role: "about" },
+        { type: "separator" },
+        { role: "services" },
+        { type: "separator" },
+        { role: "hide" },
+        { role: "hideOthers" },
+        { role: "unhide" },
+        { type: "separator" },
+        { role: "quit" },
+      ],
+    });
+
+    (template[4].submenu as Electron.MenuItemConstructorOptions[]).push(
+      { type: "separator" },
+      {
+        label: "Bring All to Front",
+        role: "front",
+      }
+    );
+  }
+
+  const menu = Menu.buildFromTemplate(template);
+  Menu.setApplicationMenu(menu);
+}
+
+app.whenReady().then(async () => {
+  electronApp.setAppUserModelId("com.enspira.desktop");
+  
+  // Initialize core services
+  registerWhisperIPCHandlers();
+
+  // Ensure directories exist before creating window
+  await ensureDirectoriesExist();
+
+  // 🎤 NEW: Initialize microphone service first (lightweight, always available)
+  console.log('🎤 Initializing microphone control service...');
+  try {
+    await ensureMicrophoneServiceInitialized();
+    console.log('✅ Microphone control service ready');
+  } catch (error) {
+    console.error('❌ Failed to initialize microphone service:', error);
+    // Continue without microphone service - don't block app startup
+  }
+
+  // 🚫 REMOVED: Automatic OBS initialization
+  // OBS will be initialized only when explicitly requested via settings
+
+  console.log('✅ App initialized with microphone service (OBS on-demand)');
+
+  // Create main window
+  mainWindow = createWindow();
+  createAppMenu();
+
   if (process.env.NODE_ENV === "development") {
     globalShortcut.register("F12", () => {
-      const window = windowManager.getWindow();
-      if (!window) return;
+      if (!mainWindow) return;
 
-      if (window.webContents.isDevToolsOpened()) {
-        window.webContents.closeDevTools();
+      if (mainWindow.webContents.isDevToolsOpened()) {
+        mainWindow.webContents.closeDevTools();
       } else {
-        window.webContents.openDevTools();
+        mainWindow.webContents.openDevTools();
       }
     });
   }
@@ -102,9 +658,8 @@ app.whenReady().then(() => {
   setupIPC();
 
   app.on("activate", () => {
-    const window = windowManager.getWindow();
-    if (window) {
-      window.show();
+    if (mainWindow) {
+      mainWindow.show();
     }
   });
 
@@ -112,14 +667,16 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window);
   });
 
-  app.on('web-contents-created', (_, contents) => {
-    contents.session.setPermissionRequestHandler((webContents, permission, callback) => {
-      if (permission === 'media') {
-        callback(true);
-      } else {
-        callback(false);
+  app.on("web-contents-created", (_, contents) => {
+    contents.session.setPermissionRequestHandler(
+      (webContents, permission, callback) => {
+        if (permission === "media") {
+          callback(true);
+        } else {
+          callback(false);
+        }
       }
-    });
+    );
   });
 });
 
@@ -129,8 +686,43 @@ app.on("window-all-closed", () => {
   }
 });
 
-app.on("before-quit", () => {
+app.on("before-quit", async () => {
   isQuitting = true;
-  menuManager.destroy();
+  
+  // Cleanup services in order
+  console.log('🧹 Cleaning up services...');
+  
+  // 1. Cleanup Whisper service
+  cleanupWhisperService();
+  
+  // 2. 🎤 NEW: Cleanup microphone service
+  if (microphoneServiceInitialized) {
+    try {
+      console.log('🧹 Cleaning up microphone service...');
+      await cleanupMicrophoneService();
+      console.log('✅ Microphone service cleaned up successfully');
+    } catch (error) {
+      console.error('❌ Error cleaning up microphone service:', error);
+    }
+  }
+  
+  // 3. 🧠 MEMORY OPTIMIZATION: Conditional OBS cleanup
+  if (obsInitialized) {
+    try {
+      console.log('🧹 Cleaning up OBS integration...');
+      await cleanupOBSIntegration();
+      console.log('✅ OBS integration cleaned up successfully');
+    } catch (error) {
+      console.error('❌ Error cleaning up OBS integration:', error);
+    }
+  } else {
+    console.log('⏸️ OBS was not initialized, skipping cleanup');
+  }
+  
   globalShortcut.unregisterAll();
 });
+
+// Export window for integrations if needed
+export function getMainWindow(): BrowserWindow | null {
+  return mainWindow;
+}

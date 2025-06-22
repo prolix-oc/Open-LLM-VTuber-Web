@@ -3,9 +3,7 @@ import { useVAD } from '@/context/vad-context';
 import { useTextInput } from '@/hooks/footer/use-text-input';
 import { useInterrupt } from '@/hooks/utils/use-interrupt';
 import { useMicToggle } from '@/hooks/utils/use-mic-toggle';
-import { useAiState, AiStateEnum } from '@/context/ai-state-context';
-import { useTriggerSpeak } from '@/hooks/utils/use-trigger-speak';
-import { useProactiveSpeak } from '@/context/proactive-speak-context';
+import { useAiState } from '@/context/ai-state-context';
 
 export const useFooter = () => {
   const {
@@ -17,15 +15,12 @@ export const useFooter = () => {
   } = useTextInput();
 
   const { interrupt } = useInterrupt();
-  const { startMic, autoStartMicOn } = useVAD();
   const { handleMicToggle, micOn } = useMicToggle();
   const { setAiState, aiState } = useAiState();
-  const { sendTriggerSignal } = useTriggerSpeak();
-  const { settings } = useProactiveSpeak();
 
   const handleInputChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     handleChange({ target: { value: e.target.value } } as ChangeEvent<HTMLInputElement>);
-    setAiState(AiStateEnum.WAITING);
+    setAiState('waiting');
   };
 
   const handleKeyPress = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -33,13 +28,10 @@ export const useFooter = () => {
   };
 
   const handleInterrupt = () => {
-    if (aiState === AiStateEnum.THINKING_SPEAKING) {
+    if (aiState === 'thinking-speaking') {
       interrupt();
-      if (autoStartMicOn) {
-        startMic();
-      }
-    } else if (settings.allowButtonTrigger) {
-      sendTriggerSignal(-1);
+      // REMOVED: No auto-restart logic - VAD stays as user left it
+      // User controls microphone state explicitly via toggle button
     }
   };
 

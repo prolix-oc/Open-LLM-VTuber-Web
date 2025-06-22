@@ -5,29 +5,20 @@ export const useASRSettings = () => {
   const {
     settings,
     updateSettings,
-    autoStopMic,
-    setAutoStopMic,
-    autoStartMicOn,
-    setAutoStartMicOn,
-    autoStartMicOnConvEnd,
-    setAutoStartMicOnConvEnd,
+    autoStartOnInit,
+    setAutoStartOnInit,
   } = useVAD();
 
   const localSettingsRef = useRef<VADSettings>(settings);
   const originalSettingsRef = useRef(settings);
-  const originalAutoStopMicRef = useRef(autoStopMic);
-  const originalAutoStartMicOnRef = useRef(autoStartMicOn);
-  const originalAutoStartMicOnConvEndRef = useRef(autoStartMicOnConvEnd);
-  const [localVoiceInterruption, setLocalVoiceInterruption] = useState(autoStopMic);
-  const [localAutoStartMic, setLocalAutoStartMic] = useState(autoStartMicOn);
-  const [localAutoStartMicOnConvEnd, setLocalAutoStartMicOnConvEnd] = useState(autoStartMicOnConvEnd);
+  const originalAutoStartOnInitRef = useRef(autoStartOnInit);
+  
+  const [localAutoStartOnInit, setLocalAutoStartOnInit] = useState(autoStartOnInit);
   const [, forceUpdate] = React.useReducer((x) => x + 1, 0);
 
   useEffect(() => {
-    setLocalVoiceInterruption(autoStopMic);
-    setLocalAutoStartMic(autoStartMicOn);
-    setLocalAutoStartMicOnConvEnd(autoStartMicOnConvEnd);
-  }, [autoStopMic, autoStartMicOn, autoStartMicOnConvEnd]);
+    setLocalAutoStartOnInit(autoStartOnInit);
+  }, [autoStartOnInit]);
 
   const handleInputChange = (key: keyof VADSettings, value: number | string): void => {
     if (value === '' || value === '-') {
@@ -42,48 +33,28 @@ export const useASRSettings = () => {
     forceUpdate();
   };
 
-  const handleVoiceInterruptionChange = (value: boolean) => {
-    setLocalVoiceInterruption(value);
-    setAutoStopMic(value);
-  };
-
-  const handleAutoStartMicChange = (value: boolean) => {
-    setLocalAutoStartMic(value);
-    setAutoStartMicOn(value);
-  };
-
-  const handleAutoStartMicOnConvEndChange = (value: boolean) => {
-    setLocalAutoStartMicOnConvEnd(value);
-    setAutoStartMicOnConvEnd(value);
+  const handleAutoStartOnInitChange = (value: boolean) => {
+    setLocalAutoStartOnInit(value);
+    setAutoStartOnInit(value);
   };
 
   const handleSave = (): void => {
     updateSettings(localSettingsRef.current);
     originalSettingsRef.current = localSettingsRef.current;
-    originalAutoStopMicRef.current = localVoiceInterruption;
-    originalAutoStartMicOnRef.current = localAutoStartMic;
-    originalAutoStartMicOnConvEndRef.current = localAutoStartMicOnConvEnd;
+    originalAutoStartOnInitRef.current = localAutoStartOnInit;
   };
 
   const handleCancel = (): void => {
     localSettingsRef.current = originalSettingsRef.current;
-    setLocalVoiceInterruption(originalAutoStopMicRef.current);
-    setLocalAutoStartMic(originalAutoStartMicOnRef.current);
-    setAutoStopMic(originalAutoStopMicRef.current);
-    setAutoStartMicOn(originalAutoStartMicOnRef.current);
-    setLocalAutoStartMicOnConvEnd(originalAutoStartMicOnConvEndRef.current);
-    setAutoStartMicOnConvEnd(originalAutoStartMicOnConvEndRef.current);
+    setLocalAutoStartOnInit(originalAutoStartOnInitRef.current);
+    setAutoStartOnInit(originalAutoStartOnInitRef.current);
     forceUpdate();
   };
 
   return {
     localSettings: localSettingsRef.current,
-    autoStopMic: localVoiceInterruption,
-    autoStartMicOn: localAutoStartMic,
-    autoStartMicOnConvEnd: localAutoStartMicOnConvEnd,
-    setAutoStopMic: handleVoiceInterruptionChange,
-    setAutoStartMicOn: handleAutoStartMicChange,
-    setAutoStartMicOnConvEnd: handleAutoStartMicOnConvEndChange,
+    autoStartOnInit: localAutoStartOnInit,
+    setAutoStartOnInit: handleAutoStartOnInitChange,
     handleInputChange,
     handleSave,
     handleCancel,

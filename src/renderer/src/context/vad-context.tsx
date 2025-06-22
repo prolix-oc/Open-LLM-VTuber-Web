@@ -1,265 +1,162 @@
-/* eslint-disable no-use-before-define */
 import {
   createContext, useContext, useRef, useCallback, useEffect, useReducer, useMemo,
 } from 'react';
 import { MicVAD } from '@ricky0123/vad-web';
-import { useInterrupt } from '@/components/canvas/live2d';
 import { audioTaskQueue } from '@/utils/task-queue';
-import { useSendAudio } from '@/hooks/utils/use-send-audio';
-import { SubtitleContext } from './subtitle-context';
-import { AiStateContext } from './ai-state-context';
+import { useAiState } from '@/context/ai-state-context';
+import { useSTT } from '@/context/stt-context';
 import { useLocalStorage } from '@/hooks/utils/use-local-storage';
+import { useWebSocket } from '@/context/websocket-context';
 import { toaster } from '@/components/ui/toaster';
 
-/**
- * VAD settings configuration interface
- * @interface VADSettings
- */
 export interface VADSettings {
-  /** Threshold for positive speech detection (0-100) */
   positiveSpeechThreshold: number;
-
-  /** Threshold for negative speech detection (0-100) */
   negativeSpeechThreshold: number;
-
-  /** Number of frames for speech redemption */
   redemptionFrames: number;
 }
 
-/**
- * VAD context state interface
- * @interface VADState
- */
 interface VADState {
-  /** Auto stop mic feature state */
-  autoStopMic: boolean;
-
-  /** Microphone active state */
   micOn: boolean;
-
-  /** Set microphone state */
+  micEnabled: boolean; // New: separate processing toggle
   setMicOn: (value: boolean) => void;
-
-  /** Set Auto stop mic state */
-  setAutoStopMic: (value: boolean) => void;
-
-  /** Start microphone and VAD */
+  setMicEnabled: (value: boolean) => void;
+  toggleMicEnabled: () => void; // New: for remote toggle
   startMic: () => Promise<void>;
-
-  /** Stop microphone and VAD */
   stopMic: () => void;
-
-  /** Previous speech probability value */
   previousTriggeredProbability: number;
-
-  /** Set previous speech probability */
   setPreviousTriggeredProbability: (value: number) => void;
-
-  /** VAD settings configuration */
   settings: VADSettings;
-
-  /** Update VAD settings */
   updateSettings: (newSettings: VADSettings) => void;
-
-  /** Auto start microphone when AI starts speaking */
-  autoStartMicOn: boolean;
-
-  /** Set auto start microphone state */
-  setAutoStartMicOn: (value: boolean) => void;
-
-  /** Auto start microphone when conversation ends */
-  autoStartMicOnConvEnd: boolean;
-
-  /** Set auto start microphone when conversation ends state */
-  setAutoStartMicOnConvEnd: (value: boolean) => void;
+  isTranscribing: boolean;
+  transcriptionStatus: 'idle' | 'processing' | 'complete' | 'error';
+  lastTranscription: string;
+  autoStartOnInit: boolean;
+  setAutoStartOnInit: (value: boolean) => void;
 }
 
-/**
- * Default values and constants
- */
 const DEFAULT_VAD_SETTINGS: VADSettings = {
   positiveSpeechThreshold: 50,
   negativeSpeechThreshold: 35,
   redemptionFrames: 35,
 };
 
-const DEFAULT_VAD_STATE = {
-  micOn: false,
-  autoStopMic: false,
-  autoStartMicOn: false,
-  autoStartMicOnConvEnd: false,
-};
-
-/**
- * Create the VAD context
- */
 export const VADContext = createContext<VADState | null>(null);
 
-/**
- * VAD Provider Component
- * Manages voice activity detection and microphone state
- *
- * @param {Object} props - Provider props
- * @param {React.ReactNode} props.children - Child components
- */
 export function VADProvider({ children }: { children: React.ReactNode }) {
-  // Refs for VAD instance and state
   const vadRef = useRef<MicVAD | null>(null);
   const previousTriggeredProbabilityRef = useRef(0);
+  const isProcessingRef = useRef(false);
+  
+  // Simple session management
+  const activeSessionRef = useRef<{
+    startTime: number;
+    timeout: NodeJS.Timeout | null;
+  } | null>(null);
+  
+  // Simple initialization tracking
+  const initializationAttemptedRef = useRef(false);
 
-  // Persistent state management
-  const [micOn, setMicOn] = useLocalStorage('micOn', DEFAULT_VAD_STATE.micOn);
-  const autoStopMicRef = useRef(true);
-  const [autoStopMic, setAutoStopMicState] = useLocalStorage(
-    'autoStopMic',
-    DEFAULT_VAD_STATE.autoStopMic,
-  );
-  const [settings, setSettings] = useLocalStorage<VADSettings>(
-    'vadSettings',
-    DEFAULT_VAD_SETTINGS,
-  );
-  const [autoStartMicOn, setAutoStartMicOnState] = useLocalStorage(
-    'autoStartMicOn',
-    DEFAULT_VAD_STATE.autoStartMicOn,
-  );
-  const autoStartMicRef = useRef(false);
-  const [autoStartMicOnConvEnd, setAutoStartMicOnConvEndState] = useLocalStorage(
-    'autoStartMicOnConvEnd',
-    DEFAULT_VAD_STATE.autoStartMicOnConvEnd,
-  );
-  const autoStartMicOnConvEndRef = useRef(false);
+  // SIMPLIFIED: Two separate states
+  const [micOn, setMicOnState] = useLocalStorage('micOn', false); // VAD is running
+  const [micEnabled, setMicEnabledState] = useLocalStorage('micEnabled', true); // Processing enabled
+  const [settings, setSettings] = useLocalStorage<VADSettings>('vadSettings', DEFAULT_VAD_SETTINGS);
+  const [autoStartOnInit, setAutoStartOnInitState] = useLocalStorage('autoStartOnInit', true);
+  
+  // Transcription state
+  const [transcriptionStatus, setTranscriptionStatus] = useLocalStorage<'idle' | 'processing' | 'complete' | 'error'>('transcriptionStatus', 'idle');
+  const [lastTranscription, setLastTranscription] = useLocalStorage('lastTranscription', '');
 
-  // Force update mechanism for ref updates
+  // Force update mechanism
   const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
-  // External hooks and contexts
-  const { interrupt } = useInterrupt();
-  const { sendAudioPartition } = useSendAudio();
-  const { setSubtitleText } = useContext(SubtitleContext)!;
-  const { aiState, setAiState } = useContext(AiStateContext)!;
+  // Context dependencies
+  const { 
+    sendMessage, 
+    isAuthenticated, 
+    wsState, 
+    apiKey, 
+    getConnectionInfo 
+  } = useWebSocket();
+  
+  const { aiState, setAiState } = useAiState();
+  const sttContext = useSTT();
 
-  // Refs for callback stability
-  const interruptRef = useRef(interrupt);
-  const sendAudioPartitionRef = useRef(sendAudioPartition);
-  const aiStateRef = useRef<string>(aiState);
-  const setSubtitleTextRef = useRef(setSubtitleText);
-  const setAiStateRef = useRef(setAiState);
+  // Readiness check
+  const isReadyForVAD = useCallback(() => {
+    const connectionInfo = getConnectionInfo();
+    const hasApiKey = !!(apiKey && apiKey.trim());
+    const isConnected = wsState === 'OPEN';
+    const isFullyAuthenticated = isAuthenticated && !connectionInfo.authenticationPending;
+    const sttReady = sttContext.isInitialized;
+    
+    return hasApiKey && isConnected && isFullyAuthenticated && sttReady;
+  }, [apiKey, wsState, isAuthenticated, getConnectionInfo, sttContext.isInitialized]);
 
-  const isProcessingRef = useRef(false);
-
-  // Update refs when dependencies change
-  useEffect(() => {
-    aiStateRef.current = aiState;
-  }, [aiState]);
-
-  useEffect(() => {
-    interruptRef.current = interrupt;
-  }, [interrupt]);
-
-  useEffect(() => {
-    sendAudioPartitionRef.current = sendAudioPartition;
-  }, [sendAudioPartition]);
-
-  useEffect(() => {
-    setSubtitleTextRef.current = setSubtitleText;
-  }, [setSubtitleText]);
-
-  useEffect(() => {
-    setAiStateRef.current = setAiState;
-  }, [setAiState]);
-
-  useEffect(() => {
-    autoStopMicRef.current = autoStopMic;
-  }, []);
-
-  useEffect(() => {
-    autoStartMicRef.current = autoStartMicOn;
-  }, []);
-
-  useEffect(() => {
-    autoStartMicOnConvEndRef.current = autoStartMicOnConvEnd;
-  }, []);
-
-  /**
-   * Update previous triggered probability and force re-render
-   */
-  const setPreviousTriggeredProbability = useCallback((value: number) => {
-    previousTriggeredProbabilityRef.current = value;
-    forceUpdate();
-  }, []);
-
-  /**
-   * Handle speech start event
-   */
-  const handleSpeechStart = useCallback(() => {
-    console.log('Speech started');
-    if (aiStateRef.current === 'thinking-speaking') {
-      interruptRef.current();
-    }
-    isProcessingRef.current = true;
-    setAiStateRef.current('listening');
-  }, []);
-
-  /**
-   * Handle frame processing event
-   */
-  const handleFrameProcessed = useCallback((probs: { isSpeech: number }) => {
-    if (probs.isSpeech > previousTriggeredProbabilityRef.current) {
-      setPreviousTriggeredProbability(probs.isSpeech);
-    }
-  }, []);
-
-  /**
-   * Handle speech end event
-   */
-  const handleSpeechEnd = useCallback((audio: Float32Array) => {
-    if (!isProcessingRef.current) return;
-    console.log('Speech ended');
-    audioTaskQueue.clearQueue();
-
-    if (autoStopMicRef.current) {
-      stopMic();
+  // Simple mic state setter (starts/stops VAD)
+  const setMicOn = useCallback((value: boolean) => {
+    console.log('🎤 Mic toggle (VAD):', { from: micOn, to: value });
+    setMicOnState(value);
+    
+    if (value) {
+      startMic();
     } else {
-      console.log('Auto stop mic is on, keeping mic active');
-    }
-
-    setPreviousTriggeredProbability(0);
-    sendAudioPartitionRef.current(audio);
-    isProcessingRef.current = false;
-  }, []);
-
-  /**
-   * Handle VAD misfire event
-   */
-  const handleVADMisfire = useCallback(() => {
-    if (!isProcessingRef.current) return;
-    console.log('VAD misfire detected');
-    setPreviousTriggeredProbability(0);
-    isProcessingRef.current = false;
-
-    if (aiStateRef.current === 'interrupted' || aiStateRef.current === 'listening') {
-      setAiStateRef.current('idle');
-    }
-    setSubtitleTextRef.current("The LLM can't hear you.");
-  }, []);
-
-  /**
-   * Update VAD settings and restart if active
-   */
-  const updateSettings = useCallback((newSettings: VADSettings) => {
-    setSettings(newSettings);
-    if (vadRef.current) {
       stopMic();
-      setTimeout(() => {
-        startMic();
-      }, 100);
     }
-  }, []);
+  }, [micOn, setMicOnState]);
 
-  /**
-   * Initialize new VAD instance
-   */
-  const initVAD = async () => {
+  // NEW: Mic enabled setter (enables/disables processing)
+  const setMicEnabled = useCallback((value: boolean) => {
+    console.log('🎤 Mic enabled toggle (Processing):', { from: micEnabled, to: value });
+    setMicEnabledState(value);
+    
+    // Show user feedback
+    toaster.create({
+      title: value ? '🎤 Mic Processing Enabled' : '🎤 Mic Processing Disabled',
+      description: value 
+        ? 'Speech detection will now process audio input' 
+        : 'Speech detection is muted (VAD still running)',
+      type: value ? 'success' : 'info',
+      duration: 2000,
+    });
+  }, [micEnabled, setMicEnabledState]);
+
+  // NEW: Toggle for remote control
+  const toggleMicEnabled = useCallback(() => {
+    setMicEnabled(!micEnabled);
+  }, [micEnabled, setMicEnabled]);
+
+  // Transcription sender
+  const sendTranscriptionResult = useCallback(async (transcribedText: string): Promise<boolean> => {
+    try {
+      if (!transcribedText || !transcribedText.trim()) {
+        console.warn('Empty transcription text, not sending');
+        return false;
+      }
+
+      if (!isReadyForVAD()) {
+        console.error('❌ Cannot send transcription - connection not ready');
+        return false;
+      }
+
+      console.log('📤 Sending transcription to server:', transcribedText);
+      
+      await sendMessage({
+        type: 'text-input',
+        text: transcribedText.trim(),
+      }, 'high');
+      
+      console.log('✅ Transcription sent successfully');
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to send transcription:', error);
+      return false;
+    }
+  }, [sendMessage, isReadyForVAD]);
+
+  // VAD creation function
+  const createVAD = useCallback(async (): Promise<MicVAD> => {
+    console.log('🔧 Creating VAD instance with settings:', settings);
+    
     const newVAD = await MicVAD.new({
       model: "v5",
       preSpeechPadFrames: 20,
@@ -268,102 +165,372 @@ export function VADProvider({ children }: { children: React.ReactNode }) {
       redemptionFrames: settings.redemptionFrames,
       baseAssetPath: '/libs/',
       onnxWASMBasePath: '/libs/',
-      onSpeechStart: handleSpeechStart,
-      onFrameProcessed: handleFrameProcessed,
-      onSpeechEnd: handleSpeechEnd,
-      onVADMisfire: handleVADMisfire,
+      
+      onSpeechStart: () => {
+        // SIMPLIFIED: Only process if enabled
+        if (!micEnabled) {
+          console.log('🔇 Speech detected but processing disabled');
+          return;
+        }
+
+        console.log('🗣️ Speech detected and processing enabled');
+        
+        // Interrupt AI if currently speaking
+        if (aiState === 'thinking-speaking') {
+          console.log('Interrupting current AI response');
+          setAiState('interrupted');
+          audioTaskQueue.clearQueue();
+        }
+        
+        // Create session with timeout
+        activeSessionRef.current = {
+          startTime: Date.now(),
+          timeout: setTimeout(() => {
+            console.log('⏰ Session timeout - forcing cleanup');
+            if (activeSessionRef.current) {
+              activeSessionRef.current = null;
+              isProcessingRef.current = false;
+              if (aiState === 'listening') {
+                setAiState('idle');
+              }
+            }
+          }, 30000), // 30 second max session
+        };
+        
+        isProcessingRef.current = true;
+        setAiState('listening');
+        setTranscriptionStatus('idle');
+      },
+      
+      onFrameProcessed: (probs: { isSpeech: number }) => {
+        if (probs.isSpeech > previousTriggeredProbabilityRef.current) {
+          previousTriggeredProbabilityRef.current = probs.isSpeech;
+          forceUpdate();
+        }
+      },
+      
+      onSpeechEnd: async (audio: Float32Array) => {
+        // SIMPLIFIED: Only process if enabled and we have an active session
+        if (!micEnabled || !isProcessingRef.current || !activeSessionRef.current) {
+          console.log('🔇 Speech ended but processing disabled or no session');
+          return;
+        }
+        
+        console.log('🔇 Speech ended - processing transcription');
+        
+        // Clean up session
+        if (activeSessionRef.current.timeout) {
+          clearTimeout(activeSessionRef.current.timeout);
+        }
+        
+        const sessionDuration = Date.now() - activeSessionRef.current.startTime;
+        console.log(`Speech session duration: ${sessionDuration}ms`);
+        
+        activeSessionRef.current = null;
+        isProcessingRef.current = false;
+        previousTriggeredProbabilityRef.current = 0;
+        
+        // Clear audio queue
+        audioTaskQueue.clearQueue();
+
+        // SIMPLIFIED: VAD keeps running, just process transcription
+        console.log('🎤 VAD continues listening for next input');
+
+        // Process transcription
+        try {
+          setTranscriptionStatus('processing');
+          const transcribedText = await sttContext.transcribeAudio(audio);
+          
+          if (transcribedText && transcribedText.trim()) {
+            setLastTranscription(transcribedText);
+            setTranscriptionStatus('complete');
+            
+            const success = await sendTranscriptionResult(transcribedText);
+            
+            if (success) {
+              console.log('✅ Transcription sent, waiting for AI response');
+              setAiState('thinking-speaking');
+            } else {
+              console.error('❌ Failed to send transcription');
+              setAiState('idle');
+            }
+          } else {
+            console.log('No transcription result, returning to idle');
+            setTranscriptionStatus('idle');
+            setAiState('idle');
+          }
+        } catch (error) {
+          console.error('❌ Failed to process speech:', error);
+          setTranscriptionStatus('error');
+          setAiState('idle');
+          
+          toaster.create({
+            title: 'Transcription failed',
+            description: error instanceof Error ? error.message : 'Unknown error',
+            type: 'error',
+            duration: 3000,
+          });
+        }
+      },
+      
+      onVADMisfire: () => {
+        console.log('🚫 VAD misfire detected - cleaning up session');
+        
+        if (activeSessionRef.current?.timeout) {
+          clearTimeout(activeSessionRef.current.timeout);
+        }
+        
+        activeSessionRef.current = null;
+        isProcessingRef.current = false;
+        previousTriggeredProbabilityRef.current = 0;
+
+        if (aiState === 'interrupted' || aiState === 'listening') {
+          setAiState('idle');
+        }
+        
+        setTranscriptionStatus('idle');
+        // VAD continues running - no need to restart
+      },
     });
 
-    vadRef.current = newVAD;
-    newVAD.start();
-  };
+    return newVAD;
+  }, [settings, micEnabled, aiState, setAiState, sttContext, sendTranscriptionResult]);
 
-  /**
-   * Start microphone and VAD processing
-   */
+  // Start microphone function (creates VAD)
   const startMic = useCallback(async () => {
     try {
-      if (!vadRef.current) {
-        console.log('Initializing VAD');
-        await initVAD();
-      } else {
-        console.log('Starting VAD');
-        vadRef.current.start();
+      console.log('🎤 Starting microphone...');
+      
+      if (!isReadyForVAD()) {
+        const connectionInfo = getConnectionInfo();
+        console.error('❌ Cannot start microphone - requirements not met:', {
+          hasApiKey: !!(apiKey && apiKey.trim()),
+          isConnected: wsState === 'OPEN',
+          isAuthenticated,
+          authenticationPending: connectionInfo.authenticationPending,
+          sttInitialized: sttContext.isInitialized,
+        });
+        
+        toaster.create({
+          title: 'Cannot start microphone',
+          description: 'Please ensure you are connected and authenticated.',
+          type: 'error',
+          duration: 4000,
+        });
+        return;
       }
-      setMicOn(true);
-    } catch (error) {
-      console.error('Failed to start VAD:', error);
+
+      // If VAD already exists and is paused, just resume it
+      if (vadRef.current) {
+        console.log('▶️ Resuming existing VAD...');
+        vadRef.current.start();
+        console.log('✅ VAD resumed successfully');
+        
+        toaster.create({
+          title: '🎤 VAD Resumed',
+          description: micEnabled 
+            ? 'Speech detection active and processing enabled'
+            : 'Speech detection active but processing disabled',
+          type: 'success',
+          duration: 2000,
+        });
+        return;
+      }
+
+      // Create new VAD instance
+      console.log('🔧 Creating new VAD instance...');
+      const newVAD = await createVAD();
+      vadRef.current = newVAD;
+      
+      newVAD.start();
+      
+      console.log('✅ VAD created and started successfully');
+      
       toaster.create({
-        title: `Failed to start VAD: ${error}`,
+        title: '🎤 Always Listening Active',
+        description: micEnabled 
+          ? 'Speech detection running and processing enabled!'
+          : 'Speech detection running but processing disabled',
+        type: 'success',
+        duration: 3000,
+      });
+      
+    } catch (error) {
+      console.error('❌ Failed to start VAD:', error);
+      
+      toaster.create({
+        title: 'Failed to start microphone',
+        description: error instanceof Error ? error.message : 'Unknown error occurred',
         type: 'error',
-        duration: 2000,
+        duration: 5000,
       });
     }
-  }, []);
+  }, [isReadyForVAD, getConnectionInfo, apiKey, wsState, isAuthenticated, sttContext.isInitialized, createVAD, micEnabled]);
 
-  /**
-   * Stop microphone and VAD processing
-   */
+  // Stop microphone function (destroys VAD)
   const stopMic = useCallback(() => {
-    console.log('Stopping VAD');
+    console.log('🛑 Stopping VAD');
+    
+    // Clean up active session
+    if (activeSessionRef.current?.timeout) {
+      clearTimeout(activeSessionRef.current.timeout);
+    }
+    activeSessionRef.current = null;
+    isProcessingRef.current = false;
+    
+    // Stop and destroy VAD
     if (vadRef.current) {
       vadRef.current.pause();
       vadRef.current.destroy();
       vadRef.current = null;
-      console.log('VAD stopped and destroyed successfully');
-      setPreviousTriggeredProbability(0);
-    } else {
-      console.log('VAD instance not found');
+      console.log('VAD stopped and destroyed');
     }
-    setMicOn(false);
-    isProcessingRef.current = false;
+    
+    // Reset state
+    previousTriggeredProbabilityRef.current = 0;
+    setTranscriptionStatus('idle');
+    
+    toaster.create({
+      title: '🎤 VAD Stopped',
+      description: 'Speech detection completely stopped.',
+      type: 'info',
+      duration: 2000,
+    });
   }, []);
 
-  /**
-   * Set Auto stop mic state
-   */
-  const setAutoStopMic = useCallback((value: boolean) => {
-    autoStopMicRef.current = value;
-    setAutoStopMicState(value);
-    forceUpdate();
-  }, []);
+  // Auto-start on initialization (simplified)
+  useEffect(() => {
+    if (!autoStartOnInit || initializationAttemptedRef.current) {
+      return;
+    }
+    
+    if (!isReadyForVAD()) {
+      console.log('⏳ Auto-start conditions not yet met');
+      return;
+    }
+    
+    console.log('🚀 Attempting initial auto-start...');
+    initializationAttemptedRef.current = true;
+    
+    const autoStartTimeout = setTimeout(async () => {
+      if (!micOn && isReadyForVAD()) {
+        try {
+          setMicOnState(true); // This will trigger startMic via setMicOn
+          console.log('✅ Initial auto-start successful');
+        } catch (error) {
+          console.error('❌ Initial auto-start failed:', error);
+        }
+      }
+    }, 1500);
+    
+    return () => clearTimeout(autoStartTimeout);
+  }, [isReadyForVAD, micOn, autoStartOnInit, setMicOnState]);
 
-  const setAutoStartMicOn = useCallback((value: boolean) => {
-    autoStartMicRef.current = value;
-    setAutoStartMicOnState(value);
-    forceUpdate();
-  }, []);
+  // STT provider change handling
+  useEffect(() => {
+    if (vadRef.current && micOn && sttContext.hasSettingsChanged) {
+      console.log('🔄 STT provider changed - restarting VAD');
+      stopMic();
+      setTimeout(() => {
+        startMic();
+      }, 500);
+    }
+  }, [sttContext.hasSettingsChanged, micOn, startMic, stopMic]);
 
-  const setAutoStartMicOnConvEnd = useCallback((value: boolean) => {
-    autoStartMicOnConvEndRef.current = value;
-    setAutoStartMicOnConvEndState(value);
-    forceUpdate();
-  }, []);
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (activeSessionRef.current?.timeout) {
+        clearTimeout(activeSessionRef.current.timeout);
+      }
+      stopMic();
+    };
+  }, [stopMic]);
+
+  // Settings update function
+  const updateSettings = useCallback((newSettings: VADSettings) => {
+    console.log('⚙️ Updating VAD settings:', newSettings);
+    setSettings(newSettings);
+    
+    // Restart VAD if running with new settings
+    if (vadRef.current && micOn) {
+      stopMic();
+      setTimeout(() => {
+        startMic();
+      }, 500);
+    }
+  }, [startMic, stopMic, setSettings, micOn]);
+
+  // IMPORTANT: Expose VAD state to main process for HTTP endpoint
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      // Expose VAD debug info
+      (window as any).vadDebug = {
+        micOn,
+        micEnabled,
+        aiState,
+        isReady: isReadyForVAD(),
+        vadRef: vadRef.current,
+        isProcessing: isProcessingRef.current,
+        activeSession: activeSessionRef.current,
+      };
+
+      // IMPORTANT: Expose VAD state for IPC communication
+      (window as any).vadState = {
+        micOn,
+        micEnabled,
+        toggleMicEnabled,
+        setMicEnabled,
+      };
+
+      // Register IPC listener for remote mic toggle
+      if ((window as any).electronAPI?.onMicToggle) {
+        (window as any).electronAPI.onMicToggle(() => {
+          console.log('📡 Remote mic toggle requested');
+          toggleMicEnabled();
+        });
+      }
+    }
+  }, [micOn, micEnabled, toggleMicEnabled, setMicEnabled, isReadyForVAD, aiState]);
 
   // Memoized context value
   const contextValue = useMemo(
     () => ({
-      autoStopMic: autoStopMicRef.current,
       micOn,
+      micEnabled,
       setMicOn,
-      setAutoStopMic,
+      setMicEnabled,
+      toggleMicEnabled,
       startMic,
       stopMic,
       previousTriggeredProbability: previousTriggeredProbabilityRef.current,
-      setPreviousTriggeredProbability,
+      setPreviousTriggeredProbability: (value: number) => {
+        previousTriggeredProbabilityRef.current = value;
+        forceUpdate();
+      },
       settings,
       updateSettings,
-      autoStartMicOn: autoStartMicRef.current,
-      setAutoStartMicOn,
-      autoStartMicOnConvEnd: autoStartMicOnConvEndRef.current,
-      setAutoStartMicOnConvEnd,
+      autoStartOnInit,
+      setAutoStartOnInit: setAutoStartOnInitState,
+      isTranscribing: sttContext.isRecognizing,
+      transcriptionStatus,
+      lastTranscription,
     }),
     [
       micOn,
+      micEnabled,
+      setMicOn,
+      setMicEnabled,
+      toggleMicEnabled,
       startMic,
       stopMic,
       settings,
       updateSettings,
+      autoStartOnInit,
+      setAutoStartOnInitState,
+      sttContext.isRecognizing,
+      transcriptionStatus,
+      lastTranscription,
     ],
   );
 
@@ -374,10 +541,6 @@ export function VADProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
-/**
- * Custom hook to use the VAD context
- * @throws {Error} If used outside of VADProvider
- */
 export function useVAD() {
   const context = useContext(VADContext);
 

@@ -59,3 +59,10 @@ out
 
 # Cursor files
 .cursorrules
+CodeDirectory.md
+README.md
+repomix-output.xml
+.cached_structure.json
+.eslintrc.js
+package-lock.json
+src/renderer/public/libs/live2d.min.js

@@ -1,51 +1,95 @@
-appId: com.electron.app
-productName: open-llm-vtuber-electron
+appId: com.enspira.desktop
+productName: Enspira Desktop
 directories:
-  buildResources: resources
-  output: release/${version}
+  buildResources: build
 files:
-  - 'dist/**/*'
-  - 'out/**/*'
-  - 'resources/**/*'
   - '!**/.vscode/*'
   - '!src/*'
   - '!electron.vite.config.{js,ts,mjs,cjs}'
   - '!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+  - out
 asarUnpack:
   - resources/**
+afterSign: build/notarize.js
 win:
-  executableName: open-llm-vtuber-electron
-  icon: resources/icon.ico
+  icon: build/icon.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+        - ia32
+  executableName: enspira-desktop
+  requestedExecutionLevel: asInvoker
+  artifactName: ${name}-${version}-${os}-${arch}.${ext}
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always
+  allowToChangeInstallationDirectory: true
+  oneClick: false
+  allowElevation: true
 mac:
-  icon: resources/icon.icns
+  icon: build/icon.icns
+  category: public.app-category.productivity
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
-    - NSCameraUsageDescription: Application requests access to the device's camera.
-    - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
-    - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
-    - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
+    - NSCameraUsageDescription: This app needs access to camera for background features.
+    - NSMicrophoneUsageDescription: This app needs access to microphone for voice input.
   notarize: false
-dmg:
-  artifactName: ${name}-${version}.${ext}
-linux:
   target:
-    - AppImage
-    - snap
-    - deb
-  maintainer: electronjs.org
-  category: Utility
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  artifactName: ${name}-${version}-${os}-${arch}.${ext}
+dmg:
+  artifactName: ${name}-${version}-installer.${ext}
+  title: ${productName} ${version}
+  icon: build/icon.icns
+  background: build/background.png
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
+  window:
+    width: 540
+    height: 380
+linux:
+  icon: build/icon.png
+  target:
+    - target: AppImage
+      arch:
+        - x64
+        - arm64
+    - target: snap
+      arch:
+        - x64
+        - arm64
+    - target: deb
+      arch:
+        - x64
+        - arm64
+  maintainer: enspira@example.com
+  vendor: Enspira
+  artifactName: ${name}-${version}-${os}-${arch}.${ext}
 appImage:
-  artifactName: ${name}-${version}.${ext}
-npmRebuild: false
+  artifactName: ${name}-${version}-${os}-${arch}.${ext}
+snap:
+  summary: Streamlined AI character interaction client
+  description: A desktop application for interacting with AI characters through Enspira server.
+  grade: stable
+  confinement: strict
+  publish:
+    - github
 publish:
   provider: github
-  releaseType: release
-electronDownload:
-  mirror: https://npmmirror.com/mirrors/electron/
+  owner: your-github-username
+  repo: enspira-desktop-client

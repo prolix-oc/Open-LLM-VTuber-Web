@@ -52,7 +52,7 @@ function TitleBar(): JSX.Element {
     return (
       <Box {...layoutStyles.macTitleBar}>
         <Box {...layoutStyles.titleBarTitle}>
-          Open LLM VTuber
+          Enspira VTuber
         </Box>
       </Box>
     );
@@ -61,7 +61,7 @@ function TitleBar(): JSX.Element {
   return (
     <Box {...layoutStyles.windowsTitleBar}>
       <Box {...layoutStyles.titleBarTitle}>
-        Open LLM VTuber
+        Enspira VTuber
       </Box>
       <Box {...layoutStyles.titleBarButtons}>
         <IconButton

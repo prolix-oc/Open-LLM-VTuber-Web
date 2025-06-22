@@ -1,297 +1,546 @@
-/* eslint-disable no-sparse-arrays */
-/* eslint-disable react-hooks/exhaustive-deps */
-// eslint-disable-next-line object-curly-newline
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { wsService, MessageEvent } from '@/services/websocket-service';
-import {
-  WebSocketContext, HistoryInfo, defaultWsUrl, defaultBaseUrl,
-} from '@/context/websocket-context';
-import { ModelInfo, useLive2DConfig } from '@/context/live2d-config-context';
-import { useSubtitle } from '@/context/subtitle-context';
-import { audioTaskQueue } from '@/utils/task-queue';
-import { useAudioTask } from '@/components/canvas/live2d';
-import { useBgUrl } from '@/context/bgurl-context';
-import { useConfig } from '@/context/character-config-context';
-import { useChatHistory } from '@/context/chat-history-context';
-import { toaster } from '@/components/ui/toaster';
-import { useVAD } from '@/context/vad-context';
+// src/renderer/src/services/websocket-handler.tsx
+import { useEffect, useState, useCallback, useRef } from "react";
+import { fixedWsService, WebSocketMessage } from "@/services/websocket-service";
+import { useEnhancedWebSocket } from "@/context/websocket-context";
+import { ModelInfo, useLive2DConfig } from "@/context/live2d-config-context";
+import { useSubtitle } from "@/context/subtitle-context";
+import { audioTaskQueue } from "@/utils/task-queue";
+import { useLive2DModel } from "@/context/live2d-model-context";
+import { useChatHistory } from "@/context/chat-history-context";
+import { toaster } from "@/components/ui/toaster";
 import { AiState, useAiState } from "@/context/ai-state-context";
-import { useLocalStorage } from '@/hooks/utils/use-local-storage';
-import { useGroup } from '@/context/group-context';
-import { useInterrupt } from '@/hooks/utils/use-interrupt';
+import { useInterrupt } from "@/hooks/utils/use-interrupt";
 
+// FIXED: Simplified handler that focuses only on message processing
 function WebSocketHandler({ children }: { children: React.ReactNode }) {
-  const [wsState, setWsState] = useState<string>('CLOSED');
-  const [wsUrl, setWsUrl] = useLocalStorage<string>('wsUrl', defaultWsUrl);
-  const [baseUrl, setBaseUrl] = useLocalStorage<string>('baseUrl', defaultBaseUrl);
-  const { aiState, setAiState, backendSynthComplete, setBackendSynthComplete } = useAiState();
-  const { setModelInfo } = useLive2DConfig();
+  // FIXED: Get WebSocket state from context (guaranteed to be available)
+  const {
+    wsState,
+    isAuthenticated,
+    processAudioResponse,
+    sendMessage: contextSendMessage,
+  } = useEnhancedWebSocket();
+
+  // Application state hooks
+  const { aiState, setAiState } = useAiState();
+  const { modelInfo } = useLive2DConfig();
   const { setSubtitleText } = useSubtitle();
-  const { clearResponse, setForceNewMessage } = useChatHistory();
-  const { addAudioTask } = useAudioTask();
-  const bgUrlContext = useBgUrl();
-  const { confUid, setConfName, setConfUid, setConfigFiles } = useConfig();
-  const [pendingModelInfo, setPendingModelInfo] = useState<ModelInfo | undefined>(undefined);
-  const { setSelfUid, setGroupMembers, setIsOwner } = useGroup();
-  const { startMic, stopMic, autoStartMicOnConvEnd } = useVAD();
-  const autoStartMicOnConvEndRef = useRef(autoStartMicOnConvEnd);
+  const { appendHumanMessage } = useChatHistory();
+  const { currentModel } = useLive2DModel(); // Get Live2D model from context
   const { interrupt } = useInterrupt();
 
-  useEffect(() => {
-    autoStartMicOnConvEndRef.current = autoStartMicOnConvEnd;
-  }, [autoStartMicOnConvEnd]);
+  // Current response tracking
+  const [currentResponseId, setCurrentResponseId] = useState<string | null>(
+    null
+  );
+
+  // FIXED: Message handling state to prevent duplicate processing
+  const messageProcessingRef = useRef(new Set<string>());
+
+  // Refs for stable values
+  const modelInfoRef = useRef<ModelInfo | null>(null);
+  const lastModelInfoSentRef = useRef<string>("");
 
   useEffect(() => {
-    if (pendingModelInfo) {
-      setModelInfo(pendingModelInfo);
-      setPendingModelInfo(undefined);
-    }
-  }, [pendingModelInfo, setModelInfo, confUid]);
+    modelInfoRef.current = modelInfo;
+  }, [modelInfo]);
 
-  const {
-    setCurrentHistoryUid, setMessages, setHistoryList, appendHumanMessage,
-  } = useChatHistory();
+  // FIXED: Enhanced audio task handler using Live2D's built-in speak() method
+  const addAudioTask = useCallback(
+    async (audioUrl: string, displayText?: any, actions?: any) => {
+      console.log('Adding audio task:', { audioUrl, hasDisplayText: !!displayText, hasActions: !!actions });
+      
+      if (!currentModel) {
+        console.warn('Live2D model not available for audio playback');
+        return;
+      }
 
-  const handleControlMessage = useCallback((controlText: string) => {
-    switch (controlText) {
-      case 'start-mic':
-        console.log('Starting microphone...');
-        startMic();
-        break;
-      case 'stop-mic':
-        console.log('Stopping microphone...');
-        stopMic();
-        break;
-      case 'conversation-chain-start':
-        setAiState('thinking-speaking');
-        audioTaskQueue.clearQueue();
-        clearResponse();
-        break;
-      case 'conversation-chain-end':
-        audioTaskQueue.addTask(() => new Promise<void>((resolve) => {
-          setAiState((currentState: AiState) => {
-            if (currentState === 'thinking-speaking') {
-              // Auto start mic if enabled
-              if (autoStartMicOnConvEndRef.current) {
-                startMic();
-              }
-              return 'idle';
-            }
-            return currentState;
-          });
-          resolve();
-        }));
-        break;
-      default:
-        console.warn('Unknown control command:', controlText);
-    }
-  }, [setAiState, clearResponse, setForceNewMessage, startMic, stopMic]);
-
-  const handleWebSocketMessage = useCallback((message: MessageEvent) => {
-    console.log('Received message from server:', message);
-    switch (message.type) {
-      case 'control':
-        if (message.text) {
-          handleControlMessage(message.text);
-        }
-        break;
-      case 'set-model-and-conf':
-        setAiState('loading');
-        if (message.conf_name) {
-          setConfName(message.conf_name);
-        }
-        if (message.conf_uid) {
-          setConfUid(message.conf_uid);
-          console.log('confUid', message.conf_uid);
-        }
-        if (message.client_uid) {
-          setSelfUid(message.client_uid);
-        }
-        setPendingModelInfo(message.model_info);
-        // setModelInfo(message.model_info);
-        // We don't know when the confRef in live2d-config-context will be updated, so we set a delay here for convenience
-        if (message.model_info && !message.model_info.url.startsWith("http")) {
-          const modelUrl = baseUrl + message.model_info.url;
-          // eslint-disable-next-line no-param-reassign
-          message.model_info.url = modelUrl;
-        }
-
-        setAiState('idle');
-        break;
-      case 'full-text':
-        if (message.text) {
-          setSubtitleText(message.text);
-        }
-        break;
-      case 'config-files':
-        if (message.configs) {
-          setConfigFiles(message.configs);
-        }
-        break;
-      case 'config-switched':
-        setAiState('idle');
-        setSubtitleText('New Character Loaded');
-
-        toaster.create({
-          title: 'Character switched',
-          type: 'success',
-          duration: 2000,
-        });
-
-        // setModelInfo(undefined);
-
-        wsService.sendMessage({ type: 'fetch-history-list' });
-        wsService.sendMessage({ type: 'create-new-history' });
-        break;
-      case 'background-files':
-        if (message.files) {
-          bgUrlContext?.setBackgroundFiles(message.files);
-        }
-        break;
-      case 'audio':
-        if (aiState === 'interrupted' || aiState === 'listening') {
-          console.log('Audio playback intercepted. Sentence:', message.display_text?.text);
-        } else {
-          console.log("actions", message.actions);
-          addAudioTask({
-            audioBase64: message.audio || '',
-            volumes: message.volumes || [],
-            sliceLength: message.slice_length || 0,
-            displayText: message.display_text || null,
-            expressions: message.actions?.expressions || null,
-            forwarded: message.forwarded || false,
-          });
-        }
-        break;
-      case 'history-data':
-        if (message.messages) {
-          setMessages(message.messages);
-        }
-        toaster.create({
-          title: 'History loaded',
-          type: 'success',
-          duration: 2000,
-        });
-        break;
-      case 'new-history-created':
-        setAiState('idle');
-        setSubtitleText('New Conversation Started');
-        // No need to open mic here
-        if (message.history_uid) {
-          setCurrentHistoryUid(message.history_uid);
-          setMessages([]);
-          const newHistory: HistoryInfo = {
-            uid: message.history_uid,
-            latest_message: null,
-            timestamp: new Date().toISOString(),
-          };
-          setHistoryList((prev: HistoryInfo[]) => [newHistory, ...prev]);
-          toaster.create({
-            title: 'New chat history created',
-            type: 'success',
-            duration: 2000,
-          });
-        }
-        break;
-      case 'history-deleted':
-        toaster.create({
-          title: message.success
-            ? 'History deleted successfully'
-            : 'Failed to delete history',
-          type: message.success ? 'success' : 'error',
-          duration: 2000,
-        });
-        break;
-      case 'history-list':
-        if (message.histories) {
-          setHistoryList(message.histories);
-          if (message.histories.length > 0) {
-            setCurrentHistoryUid(message.histories[0].uid);
+      if (!currentModel.speak || typeof currentModel.speak !== 'function') {
+        console.warn('Live2D model does not support speak() method');
+        // Fallback to old system
+        audioTaskQueue.addTask(async () => {
+          console.log('Using fallback audio system');
+          const audio = new Audio(audioUrl);
+          audio.volume = 1.0;
+          
+          if (displayText?.text) {
+            setSubtitleText(displayText.text);
           }
-        }
-        break;
-      case 'user-input-transcription':
-        console.log('user-input-transcription: ', message.text);
-        if (message.text) {
-          appendHumanMessage(message.text);
-        }
-        break;
-      case 'error':
-        toaster.create({
-          title: message.message,
-          type: 'error',
-          duration: 2000,
+          
+          audio.play().catch(console.error);
+          
+          return new Promise((resolve) => {
+            audio.addEventListener('ended', () => {
+              if (displayText?.text) {
+                setTimeout(() => setSubtitleText(''), 2000);
+              }
+              setAiState('idle');
+              resolve();
+            });
+            
+            audio.addEventListener('error', () => {
+              console.error('Audio playback failed');
+              setAiState('idle');
+              resolve();
+            });
+          });
         });
-        break;
-      case 'group-update':
-        console.log('Received group-update:', message.members);
-        if (message.members) {
-          setGroupMembers(message.members);
-        }
-        if (message.is_owner !== undefined) {
-          setIsOwner(message.is_owner);
-        }
-        break;
-      case 'group-operation-result':
-        toaster.create({
-          title: message.message,
-          type: message.success ? 'success' : 'error',
-          duration: 2000,
-        });
-        break;
-      case 'backend-synth-complete':
-        setBackendSynthComplete(true);
-        break;
-      case 'conversation-chain-end':
-        if (!audioTaskQueue.hasTask()) {
-          setAiState((currentState: AiState) => {
-            if (currentState === 'thinking-speaking') {
-              return 'idle';
+        return;
+      }
+
+      // Use Live2D's built-in speak() method
+      audioTaskQueue.addTask(async () => {
+        try {
+          console.log('Using Live2D speak() method for:', audioUrl);
+          
+          const speakOptions: any = {
+            volume: 1.0,
+            crossOrigin: 'anonymous',
+            
+            // Handle expressions
+            expression: actions?.expressions?.[0],
+            resetExpression: true,
+            
+            // Success callback
+            onFinish: () => {
+              console.log('Live2D audio playback finished');
+              if (displayText?.text) {
+                setTimeout(() => setSubtitleText(''), 2000);
+              }
+              setAiState('idle');
+            },
+            
+            // Error callback
+            onError: (error: Error) => {
+              console.error('Live2D audio playback error:', error);
+              setAiState('idle');
+              
+              toaster.create({
+                title: 'Audio Playback Error',
+                description: `Failed to play audio: ${error.message}`,
+                type: 'error',
+                duration: 5000,
+              });
             }
-            return currentState;
+          };
+
+          // Show subtitle
+          if (displayText?.text) {
+            setSubtitleText(displayText.text);
+          }
+
+          // Use Live2D's speak method - this handles audio loading and lip sync automatically
+          const success = await currentModel.speak(audioUrl, speakOptions);
+          
+          if (!success) {
+            throw new Error('Live2D speak() method returned false');
+          }
+          
+          console.log('Live2D speak() method called successfully');
+          
+        } catch (error) {
+          console.error('Failed to use Live2D speak() method:', error);
+          
+          // Fallback to basic audio playback
+          console.log('Falling back to basic audio playback');
+          const audio = new Audio(audioUrl);
+          audio.volume = 1.0;
+          
+          audio.play().catch((playError) => {
+            console.error('Fallback audio playback failed:', playError);
+            setAiState('idle');
+          });
+          
+          return new Promise((resolve) => {
+            audio.addEventListener('ended', () => {
+              if (displayText?.text) {
+                setTimeout(() => setSubtitleText(''), 2000);
+              }
+              setAiState('idle');
+              resolve();
+            });
+            
+            audio.addEventListener('error', () => {
+              console.error('Fallback audio playback failed');
+              setAiState('idle');
+              resolve();
+            });
           });
         }
-        break;
-      case 'force-new-message':
-        setForceNewMessage(true);
-        break;
-      case 'interrupt-signal':
-        // Handle forwarded interrupt
-        interrupt(false); // do not send interrupt signal to server
-        break;
-      default:
-        console.warn('Unknown message type:', message.type);
+      });
+    },
+    [currentModel, setSubtitleText, setAiState]
+  );
+
+  // FIXED: Send text input to server with better error handling
+  const sendTextInput = useCallback(
+    async (text: string) => {
+      if (!text.trim()) {
+        console.warn("Attempted to send empty text input");
+        return;
+      }
+
+      // FIXED: Check connection state before sending
+      if (wsState !== "OPEN") {
+        console.warn("Cannot send text input - WebSocket not connected");
+        toaster.create({
+          title: "Connection required",
+          description: "Please wait for connection to be established",
+          type: "warning",
+          duration: 3000,
+        });
+        return;
+      }
+
+      if (!isAuthenticated) {
+        console.warn("Cannot send text input - not authenticated");
+        toaster.create({
+          title: "Authentication required",
+          description: "Please check your API key in settings",
+          type: "warning",
+          duration: 3000,
+        });
+        return;
+      }
+
+      try {
+        console.log("Sending text input to server:", text);
+
+        // Add human message to chat history
+        appendHumanMessage(text);
+
+        // Set AI state to thinking
+        setAiState("thinking-speaking");
+
+        // Send to server via context
+        await contextSendMessage(
+          {
+            type: "text-input",
+            text: text.trim(),
+          },
+          "high"
+        );
+
+        console.log("Text input sent successfully");
+      } catch (error) {
+        console.error("Failed to send text input:", error);
+        setAiState("idle"); // Reset AI state on error
+        toaster.create({
+          title: "Failed to send message",
+          description: error instanceof Error ? error.message : "Unknown error",
+          type: "error",
+          duration: 3000,
+        });
+      }
+    },
+    [
+      appendHumanMessage,
+      contextSendMessage,
+      wsState,
+      isAuthenticated,
+      setAiState,
+    ]
+  );
+
+  // FIXED: Send model info with deduplication and proper timing
+  const sendModelInfo = useCallback(async () => {
+    if (!modelInfo || wsState !== "OPEN" || !isAuthenticated) {
+      return;
     }
-  }, [aiState, addAudioTask, appendHumanMessage, baseUrl, bgUrlContext, setAiState, setConfName, setConfUid, setConfigFiles, setCurrentHistoryUid, setHistoryList, setMessages, setModelInfo, setSubtitleText, startMic, stopMic, setSelfUid, setGroupMembers, setIsOwner, backendSynthComplete, setBackendSynthComplete, clearResponse]);
 
-  useEffect(() => {
-    wsService.connect(wsUrl);
-  }, [wsUrl]);
+    // FIXED: Create a hash of model info to prevent duplicate sends
+    const modelInfoHash = JSON.stringify({
+      name: modelInfo.name,
+      url: modelInfo.url,
+      scale: modelInfo.kScale,
+      width: modelInfo.width,
+      height: modelInfo.height,
+    });
 
+    // Don't send if we already sent this exact model info
+    if (lastModelInfoSentRef.current === modelInfoHash) {
+      console.log("Model info unchanged, skipping send");
+      return;
+    }
+
+    try {
+      // Extract available expressions from the model
+      // This assumes your Live2D model exposes available expressions
+      const expressions = (window as any).live2d?.getExpressions?.() || [];
+
+      await contextSendMessage(
+        {
+          type: "model-info",
+          model_info: {
+            name: modelInfo.name,
+            url: modelInfo.url,
+            expressions: expressions,
+            scale: modelInfo.kScale,
+            width: modelInfo.width,
+            height: modelInfo.height,
+          },
+        },
+        "normal"
+      );
+
+      // Update the hash to prevent duplicate sends
+      lastModelInfoSentRef.current = modelInfoHash;
+
+      console.log("Sent model info to server:", {
+        name: modelInfo.name,
+        expressionCount: expressions.length,
+        expressions: expressions,
+      });
+    } catch (error) {
+      console.error("Failed to send model info:", error);
+    }
+  }, [modelInfo, wsState, isAuthenticated, contextSendMessage]);
+
+  // FIXED: Send model info when conditions are met
   useEffect(() => {
-    const stateSubscription = wsService.onStateChange(setWsState);
-    const messageSubscription = wsService.onMessage(handleWebSocketMessage);
+    // Only send if we have all required conditions
+    if (modelInfo && wsState === "OPEN" && isAuthenticated) {
+      // Small delay to ensure connection is fully established
+      const timer = setTimeout(() => {
+        sendModelInfo();
+      }, 500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [modelInfo, wsState, isAuthenticated, sendModelInfo]);
+
+  // FIXED: Handle base64 audio (legacy support)
+  const handleLegacyAudio = useCallback(
+    async (base64Audio: string, displayText?: any, responseId?: string) => {
+      try {
+        console.log('Processing legacy base64 audio:', { responseId, hasDisplayText: !!displayText });
+        
+        const cleanBase64 = base64Audio.replace(/^data:audio\/[^;]+;base64,/, '');
+        const audioData = atob(cleanBase64);
+        const audioArray = new Uint8Array(audioData.length);
+        
+        for (let i = 0; i < audioData.length; i++) {
+          audioArray[i] = audioData.charCodeAt(i);
+        }
+        
+        const audioBlob = new Blob([audioArray], { type: 'audio/wav' });
+        const audioUrl = URL.createObjectURL(audioBlob);
+        
+        console.log('Created audio blob URL:', audioUrl);
+        
+        await addAudioTask(audioUrl, displayText);
+        
+        // Clean up blob URL after use
+        setTimeout(() => {
+          URL.revokeObjectURL(audioUrl);
+        }, 120000);
+        
+      } catch (error) {
+        console.error('Failed to process legacy base64 audio:', error);
+        toaster.create({
+          title: 'Audio Format Error',
+          description: 'Failed to process audio data',
+          type: 'error',
+          duration: 5000,
+        });
+      }
+    },
+    [addAudioTask]
+  );
+
+  // FIXED: Enhanced message handler with deduplication and proper audio processing
+  const handleWebSocketMessage = useCallback(
+    async (message: WebSocketMessage) => {
+      // FIXED: Prevent duplicate message processing
+      const messageId = message.request_id || `${message.type}-${Date.now()}`;
+
+      if (messageProcessingRef.current.has(messageId)) {
+        console.log("Duplicate message detected, skipping:", messageId);
+        return;
+      }
+
+      messageProcessingRef.current.add(messageId);
+
+      // Clean up old message IDs after 30 seconds
+      setTimeout(() => {
+        messageProcessingRef.current.delete(messageId);
+      }, 30000);
+
+      console.log("Processing message from server:", {
+        type: message.type,
+        responseId: message.response_id,
+        messageId: messageId,
+      });
+
+      try {
+        switch (message.type) {
+          case "response-queued":
+            console.log("Response queued on server:", message.response_id);
+            setCurrentResponseId(message.response_id || null);
+            setAiState("thinking-speaking");
+            // Clear any previous response content
+            audioTaskQueue.clearQueue();
+            break;
+
+          case "synthesis-started":
+            console.log("TTS synthesis started:", message.response_id);
+            setAiState("thinking-speaking");
+            break;
+
+          case "synthesis-complete":
+            console.log("TTS synthesis complete:", message.response_id);
+            // Keep AI state as thinking-speaking until audio arrives
+            break;
+
+          case "audio-url":
+            console.log("Received audio URL message:", {
+              hasUrl: !!message.audio_url,
+              format: message.audio_format,
+              sampleRate: message.sample_rate,
+              hasDisplayText: !!message.display_text,
+              hasActions: !!message.actions,
+            });
+
+            // FIXED: Handle audio URL directly instead of trying to emit
+            if (message.audio_url) {
+              await addAudioTask(message.audio_url, message.display_text, message.actions);
+            }
+            break;
+
+          case "audio":
+            // Legacy base64 audio handling (fallback)
+            console.log("Received legacy base64 audio message");
+            if (message.audio) {
+              await handleLegacyAudio(message.audio, message.display_text, message.response_id);
+            }
+            break;
+
+          case "full-text":
+            if (message.text) {
+              console.log(
+                "Received full text response:",
+                message.text.substring(0, 50) + "..."
+              );
+              setSubtitleText(message.text);
+            }
+            break;
+
+          case "interrupt":
+            console.log("Server requested interruption");
+            interrupt(false);
+            audioTaskQueue.clearQueue();
+            setAiState("idle");
+            setCurrentResponseId(null);
+            break;
+
+          case "error":
+            console.error("Server error:", message.message);
+            toaster.create({
+              title: "Server Error",
+              description: message.message || "An error occurred on the server",
+              type: "error",
+              duration: 5000,
+            });
+            setAiState("idle");
+            setCurrentResponseId(null);
+            break;
+
+          case "auth-success":
+            console.log("Authentication successful (handled by context)");
+            // Send model info after successful authentication
+            setTimeout(() => {
+              sendModelInfo();
+            }, 1000);
+            break;
+
+          case "auth-failed":
+            console.log("Authentication failed (handled by context)");
+            break;
+
+          case "auth-required":
+            console.log("Authentication required (handled by context)");
+            break;
+
+          case "connection-established":
+            console.log("Connection established with server");
+            break;
+
+          case "ping":
+            // Respond to server ping (this is handled by the service)
+            break;
+
+          case "pong":
+            // Server responded to our ping (handled by the service)
+            break;
+
+          case "model-info-received":
+            console.log("Server confirmed model info received");
+            break;
+
+          default:
+            console.warn("Unknown message type:", message.type);
+        }
+      } catch (error) {
+        console.error("Error processing WebSocket message:", error);
+      }
+    },
+    [
+      aiState,
+      addAudioTask,
+      handleLegacyAudio,
+      setAiState,
+      setSubtitleText,
+      interrupt,
+      processAudioResponse,
+      sendModelInfo,
+    ]
+  );
+
+  // FIXED: Subscribe to messages only - no connection management
+  useEffect(() => {
+    console.log("WebSocketHandler: Subscribing to WebSocket messages...");
+
+    const messageSubscription = fixedWsService
+      .onMessage()
+      .subscribe(handleWebSocketMessage);
+
     return () => {
-      stateSubscription.unsubscribe();
+      console.log("WebSocketHandler: Cleaning up message subscription");
       messageSubscription.unsubscribe();
     };
-  }, [wsUrl, handleWebSocketMessage]);
+  }, [handleWebSocketMessage]);
 
-  const webSocketContextValue = useMemo(() => ({
-    sendMessage: wsService.sendMessage.bind(wsService),
-    wsState,
-    reconnect: () => wsService.connect(wsUrl),
-    wsUrl,
-    setWsUrl,
-    baseUrl,
-    setBaseUrl,
-  }), [wsState, wsUrl, baseUrl]);
+  // FIXED: Expose sendTextInput function globally for easy access
+  useEffect(() => {
+    (window as any).sendTextInput = sendTextInput;
 
-  return (
-    <WebSocketContext.Provider value={webSocketContextValue}>
-      {children}
-    </WebSocketContext.Provider>
-  );
+    return () => {
+      delete (window as any).sendTextInput;
+    };
+  }, [sendTextInput]);
+
+  // FIXED: Cleanup processing refs on unmount
+  useEffect(() => {
+    return () => {
+      messageProcessingRef.current.clear();
+    };
+  }, []);
+
+  // Log Live2D model status
+  useEffect(() => {
+    if (currentModel) {
+      console.log('WebSocketHandler: Live2D model available:', {
+        hasSpeak: typeof currentModel.speak === 'function',
+        hasStopSpeaking: typeof currentModel.stopSpeaking === 'function',
+        modelType: currentModel.constructor.name,
+      });
+    } else {
+      console.log('WebSocketHandler: No Live2D model available');
+    }
+  }, [currentModel]);
+
+  // FIXED: Just render children - no context provider here
+  return <>{children}</>;
 }
 
 export default WebSocketHandler;

@@ -1,156 +1,119 @@
-import { useRef, useEffect } from 'react';
-import { useAiState } from '@/context/ai-state-context';
-import { useSubtitle } from '@/context/subtitle-context';
-import { useChatHistory } from '@/context/chat-history-context';
+// src/renderer/src/hooks/utils/use-audio-task.ts
+import { useCallback } from 'react';
 import { audioTaskQueue } from '@/utils/task-queue';
-import { useLive2DModel } from '@/context/live2d-model-context';
-import { toaster } from '@/components/ui/toaster';
-import { useWebSocket } from '@/context/websocket-context';
-import { DisplayText } from '@/services/websocket-service';
 
-interface AudioTaskOptions {
-  audioBase64: string
-  volumes: number[]
-  sliceLength: number
-  displayText?: DisplayText | null
-  expressions?: string[] | number[] | null
-  speaker_uid?: string
-  forwarded?: boolean
+export interface AudioTask {
+  id: string;
+  url: string;
+  displayText?: {
+    text: string;
+    name: string;
+    avatar: string;
+  };
+  actions?: {
+    expressions?: string[] | number[];
+    pictures?: string[];
+    sounds?: string[];
+  };
+  priority: 'low' | 'normal' | 'high' | 'critical';
+  timestamp: number;
+  retryCount?: number;
+  maxRetries?: number;
 }
 
+/**
+ * Simplified useAudioTask hook that integrates with the existing task queue system
+ * This provides a compatibility layer while delegating actual audio processing
+ * to the WebSocket handler's Live2D integration.
+ */
 export const useAudioTask = () => {
-  const { aiState, backendSynthComplete, setBackendSynthComplete } = useAiState();
-  const { setSubtitleText } = useSubtitle();
-  const { appendResponse, appendAIMessage } = useChatHistory();
-  const { currentModel } = useLive2DModel();
-  const { sendMessage } = useWebSocket();
-
-  const stateRef = useRef({
-    aiState,
-    currentModel,
-    setSubtitleText,
-    appendResponse,
-    appendAIMessage,
-  });
-
-  stateRef.current = {
-    aiState,
-    currentModel,
-    setSubtitleText,
-    appendResponse,
-    appendAIMessage,
-  };
-
-  const handleAudioPlayback = (options: AudioTaskOptions): Promise<void> => new Promise((resolve) => {
-    const {
-      aiState: currentAiState,
-      currentModel: model,
-      setSubtitleText: updateSubtitle,
-      appendResponse: appendText,
-      appendAIMessage: appendAI,
-    } = stateRef.current;
-
-    if (currentAiState === 'interrupted') {
-      console.error('Audio playback blocked. State:', currentAiState);
-      resolve();
-      return;
-    }
-
-    const { audioBase64, displayText, expressions, forwarded } = options;
-
-    if (displayText) {
-      appendText(displayText.text);
-      appendAI(displayText.text, displayText.name, displayText.avatar);
-      if (audioBase64) {
-        updateSubtitle(displayText.text);
-      }
-      if (!forwarded) {
-        sendMessage({
-          type: "audio-play-start",
-          display_text: displayText,
-          forwarded: true,
+  
+  // Add audio task to the existing queue system
+  const addAudioTask = useCallback((
+    url: string,
+    displayText?: any,
+    actions?: any,
+    priority: 'low' | 'normal' | 'high' | 'critical' = 'normal'
+  ) => {
+    console.log('useAudioTask: Adding task via existing queue system:', url);
+    
+    // Use the existing audio task queue
+    audioTaskQueue.addTask(async () => {
+      console.log('Processing audio task:', url);
+      
+      // The actual processing is now handled by the WebSocket handler
+      // This is just a compatibility wrapper
+      const audio = new Audio(url);
+      audio.volume = 1.0;
+      
+      return new Promise((resolve, reject) => {
+        audio.addEventListener('loadstart', () => {
+          console.log('Audio loading started');
         });
-      }
-    }
-
-    if (!model) {
-      console.error('Model not initialized');
-      resolve();
-      return;
-    }
-
-    try {
-      if (expressions?.[0] !== undefined) {
-        model.expression(expressions[0]);
-      }
-
-      let isFinished = false;
-      if (audioBase64) {
-        model.speak(`data:audio/wav;base64,${audioBase64}`, {
-          onFinish: () => {
-            console.log("Voiceline is over");
-            isFinished = true;
-            resolve();
-          },
-          onError: (error) => {
-            console.error("Audio playback error:", error);
-            isFinished = true;
-            resolve();
-          },
+        
+        audio.addEventListener('canplay', () => {
+          console.log('Audio can play');
         });
-      } else {
-        resolve();
-      }
-
-      const checkFinished = () => {
-        if (!isFinished) {
-          setTimeout(checkFinished, 100);
-        }
-      };
-      checkFinished();
-    } catch (error) {
-      console.error('Speak function error:', error);
-      toaster.create({
-        title: `Speak function error: ${error}`,
-        type: "error",
-        duration: 2000,
+        
+        audio.addEventListener('ended', () => {
+          console.log('Audio playback ended');
+          resolve();
+        });
+        
+        audio.addEventListener('error', (error) => {
+          console.error('Audio playback error:', error);
+          reject(error);
+        });
+        
+        audio.play().catch(reject);
       });
-      resolve();
-    }
-  });
+    });
+  }, []);
 
-  useEffect(() => {
-    let isMounted = true;
+  // Remove task (not implemented in simplified version)
+  const removeTask = useCallback((taskId: string) => {
+    console.log('useAudioTask: Remove task not implemented in simplified version');
+    return false;
+  }, []);
 
-    const handleComplete = async () => {
-      await audioTaskQueue.waitForCompletion();
-      if (isMounted && backendSynthComplete) {
-        sendMessage({ type: "frontend-playback-complete" });
-        setBackendSynthComplete(false);
-      }
+  // Clear queue
+  const clearQueue = useCallback(() => {
+    console.log('useAudioTask: Clearing audio queue');
+    audioTaskQueue.clearQueue();
+  }, []);
+
+  // Get queue status
+  const getQueueStatus = useCallback(() => {
+    return {
+      isProcessing: audioTaskQueue.hasTask(),
+      currentTask: null,
+      queueLength: 0, // Not available in current task queue implementation
+      completedTasks: 0,
+      failedTasks: 0,
+      totalTasks: 0,
+      processingCount: audioTaskQueue.hasTask() ? 1 : 0,
+      queue: [],
     };
-
-    handleComplete();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [backendSynthComplete, sendMessage, setBackendSynthComplete]);
-
-  const addAudioTask = async (options: AudioTaskOptions) => {
-    const { aiState: currentState } = stateRef.current;
-
-    if (currentState === 'interrupted') {
-      console.log('Skipping audio task due to interrupted state');
-      return;
-    }
-
-    console.log(`Adding audio task ${options.displayText?.text} to queue`);
-    audioTaskQueue.addTask(() => handleAudioPlayback(options));
-  };
+  }, []);
 
   return {
+    // Main functions
     addAudioTask,
-    appendResponse,
+    removeTask,
+    clearQueue,
+    
+    // Utility functions
+    getQueueStatus,
+    
+    // State (simplified)
+    isProcessing: audioTaskQueue.hasTask(),
+    currentTask: null,
+    queueLength: 0,
+    completedTasks: 0,
+    failedTasks: 0,
+    totalTasks: 0,
+    processingCount: audioTaskQueue.hasTask() ? 1 : 0,
   };
 };
+
+export default useAudioTask;

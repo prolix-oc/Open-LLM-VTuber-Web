@@ -1,63 +1,48 @@
-import { useState } from 'react';
-import { useWebSocket } from '@/context/websocket-context';
+import { useState, useCallback } from 'react';
+import { useSendText } from '@/hooks/utils/use-send-text';
 import { useAiState } from '@/context/ai-state-context';
-import { useInterrupt } from '@/components/canvas/live2d';
-import { useChatHistory } from '@/context/chat-history-context';
-import { useVAD } from '@/context/vad-context';
-import { useMediaCapture } from '@/hooks/utils/use-media-capture';
 
 export function useTextInput() {
-  const [inputText, setInputText] = useState('');
-  const [isComposing, setIsComposing] = useState(false);
-  const wsContext = useWebSocket();
-  const { aiState, setAiState } = useAiState();
-  const { interrupt } = useInterrupt();
-  const { appendHumanMessage } = useChatHistory();
-  const { stopMic, autoStopMic } = useVAD();
-  const { captureAllMedia } = useMediaCapture();
+  const [inputValue, setInputValue] = useState('');
+  const { sendManualInput, getConnectionStatus } = useSendText();
+  const { setAiState } = useAiState();
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setInputText(e.target.value);
-  };
+  const handleSubmit = useCallback(async () => {
+    if (!inputValue.trim()) return;
 
-  const handleSend = async () => {
-    if (!inputText.trim() || !wsContext) return;
-    if (aiState === 'thinking-speaking') {
-      interrupt();
+    const { canSend } = getConnectionStatus();
+    if (!canSend) {
+      console.warn('Cannot send message: not connected or authenticated');
+      return;
     }
 
-    const images = await captureAllMedia();
-
-    appendHumanMessage(inputText.trim());
-    wsContext.sendMessage({
-      type: 'text-input',
-      text: inputText.trim(),
-      images,
-    });
-
-    setAiState('thinking-speaking');
-    if (autoStopMic) stopMic();
-    setInputText('');
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (isComposing) return;
-
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
+    try {
+      setAiState('thinking-speaking'); // Set state to thinking while waiting for response
+      const success = await sendManualInput(inputValue);
+      
+      if (success) {
+        setInputValue(''); // Clear input on successful send
+      } else {
+        setAiState('idle'); // Reset state if send failed
+      }
+    } catch (error) {
+      console.error('Error sending text input:', error);
+      setAiState('idle');
     }
-  };
+  }, [inputValue, sendManualInput, getConnectionStatus, setAiState]);
 
-  const handleCompositionStart = () => setIsComposing(true);
-  const handleCompositionEnd = () => setIsComposing(false);
+  const handleKeyPress = useCallback((event: React.KeyboardEvent) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      handleSubmit();
+    }
+  }, [handleSubmit]);
 
   return {
-    inputText,
-    setInputText: handleInputChange,
-    handleSend,
+    inputValue,
+    setInputValue,
+    handleSubmit,
     handleKeyPress,
-    handleCompositionStart,
-    handleCompositionEnd,
+    canSend: getConnectionStatus().canSend,
   };
 }
