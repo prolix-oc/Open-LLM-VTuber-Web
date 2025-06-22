@@ -1,4 +1,4 @@
-// src/main/index.ts - Updated with Microphone Service Integration
+// src/main/index.ts - Complete Integration with CDI3 and Cross-Platform Path Handling
 import {
   app,
   ipcMain,
@@ -13,6 +13,7 @@ import { join } from "path";
 import fs from "fs/promises";
 import path from "path";
 import os from "os";
+import { pathToFileURL } from "url";
 import {
   getWhisperService,
   destroyWhisperService,
@@ -33,6 +34,14 @@ import {
   cleanupMicrophoneService
 } from "./microphone-service-manager";
 
+// 🎨 CDI3 Integration with Cross-Platform Support
+import {
+  setupCDI3Integration,
+  testCDI3Integration,
+  EnhancedModelScanner,
+  CDI3DiscoveryService,
+} from "./cdi3-integration";
+
 let mainWindow: BrowserWindow | null = null;
 let isQuitting = false;
 
@@ -40,16 +49,65 @@ let isQuitting = false;
 let obsInitialized = false;
 let microphoneServiceInitialized = false;
 
+// 🔧 CROSS-PLATFORM: Enhanced path handling utility functions
+function normalizePathSeparators(filePath: string): string {
+  // Convert all backslashes to forward slashes for consistency
+  return filePath.replace(/\\/g, '/');
+}
+
+function createCrossPlatformFileURL(filePath: string): string {
+  try {
+    // Use Node.js pathToFileURL for proper cross-platform URL conversion
+    const fileURL = pathToFileURL(filePath).href;
+    console.log(`🔗 Converted path to URL: ${filePath} -> ${fileURL}`);
+    return fileURL;
+  } catch (error) {
+    console.error(`❌ Failed to convert path to URL: ${filePath}`, error);
+    // Fallback: manual conversion for edge cases
+    return createManualFileURL(filePath);
+  }
+}
+
+function createManualFileURL(filePath: string): string {
+  // Manual conversion as fallback
+  let normalizedPath = path.resolve(filePath);
+  
+  // Handle Windows drive letters and paths
+  if (process.platform === 'win32') {
+    // Convert C:\path\to\file to C:/path/to/file
+    normalizedPath = normalizedPath.replace(/\\/g, '/');
+    // Ensure proper file:// format for Windows
+    if (normalizedPath.match(/^[A-Za-z]:/)) {
+      return `file:///${normalizedPath}`;
+    }
+  }
+  
+  // For Unix-like systems
+  return `file://${normalizedPath}`;
+}
+
 // Get the models directory path
 function getModelsDirectory(): string {
   const documentsPath = path.join(os.homedir(), "Documents");
-  return path.join(documentsPath, "Enspira-VT", "Models");
+  const modelsPath = path.join(documentsPath, "Enspira-VT", "Models");
+  
+  // Log the path for debugging Windows issues
+  console.log(`📁 Models directory path: ${modelsPath}`);
+  console.log(`📁 Normalized path: ${normalizePathSeparators(modelsPath)}`);
+  
+  return modelsPath;
 }
 
 // Get the backgrounds directory path
 function getBackgroundsDirectory(): string {
   const documentsPath = path.join(os.homedir(), "Documents");
-  return path.join(documentsPath, "Enspira-VT", "Backgrounds");
+  const backgroundsPath = path.join(documentsPath, "Enspira-VT", "Backgrounds");
+  
+  // Log the path for debugging Windows issues
+  console.log(`🖼️ Backgrounds directory path: ${backgroundsPath}`);
+  console.log(`🖼️ Normalized path: ${normalizePathSeparators(backgroundsPath)}`);
+  
+  return backgroundsPath;
 }
 
 interface ModelInfo {
@@ -58,6 +116,9 @@ interface ModelInfo {
   modelFile: string;
   hasTextures: boolean;
   hasMotions: boolean;
+  hasCDI3?: boolean;
+  cdi3File?: string;
+  cdi3Info?: any;
 }
 
 // 🧠 MEMORY OPTIMIZATION: Lazy OBS initialization function
@@ -97,33 +158,74 @@ async function ensureDirectoriesExist(): Promise<void> {
   try {
     await fs.mkdir(modelsDir, { recursive: true });
     await fs.mkdir(backgroundsDir, { recursive: true });
-    console.log("Created Enspira directories:", { modelsDir, backgroundsDir });
+    console.log("✅ Created Enspira directories:", { modelsDir, backgroundsDir });
   } catch (error) {
-    console.error("Failed to create Enspira directories:", error);
+    console.error("❌ Failed to create Enspira directories:", error);
   }
 }
 
+// 🎨 Enhanced model scanning with CDI3 integration
 async function scanForModels(): Promise<ModelInfo[]> {
+  const modelsDir = getModelsDirectory();
+  
+  try {
+    console.log(`🔍 Scanning for models with CDI3 enhancement: ${modelsDir}`);
+    
+    // Use the enhanced CDI3 scanner
+    const enhancedModels = await EnhancedModelScanner.scanModelsWithCDI3(modelsDir);
+    
+    // Convert enhanced model format to expected ModelInfo format
+    const models: ModelInfo[] = enhancedModels.map(model => ({
+      name: model.name,
+      directory: model.directory,
+      modelFile: model.modelFile,
+      hasTextures: model.hasTextures,
+      hasMotions: model.hasMotions,
+      hasCDI3: model.hasCDI3,
+      cdi3File: model.cdi3File,
+      cdi3Info: model.cdi3Info,
+    }));
+
+    const cdi3Count = models.filter(m => m.hasCDI3).length;
+    console.log(`✅ Enhanced scan complete: ${models.length} total models, ${cdi3Count} with CDI3`);
+    
+    return models.sort((a, b) => a.name.localeCompare(b.name));
+  } catch (error) {
+    console.error("❌ Enhanced model scan failed, falling back to basic scan:", error);
+    
+    // Fallback to basic scanning if enhanced scanning fails
+    return await basicScanForModels();
+  }
+}
+
+// Basic model scanning as fallback
+async function basicScanForModels(): Promise<ModelInfo[]> {
   const modelsDir = getModelsDirectory();
   const models: ModelInfo[] = [];
 
   try {
+    console.log(`🔍 Basic scanning models directory: ${modelsDir}`);
     const entries = await fs.readdir(modelsDir, { withFileTypes: true });
 
     for (const entry of entries) {
       if (entry.isDirectory()) {
         const modelDir = path.join(modelsDir, entry.name);
+        console.log(`📁 Checking model directory: ${modelDir}`);
         const modelInfo = await validateModelDirectory(modelDir, entry.name);
 
         if (modelInfo) {
+          console.log(`✅ Valid model found: ${entry.name}`);
           models.push(modelInfo);
+        } else {
+          console.log(`⚠️ Invalid model directory: ${entry.name}`);
         }
       }
     }
   } catch (error) {
-    console.error("Failed to scan models directory:", error);
+    console.error("❌ Failed to scan models directory:", error);
   }
 
+  console.log(`📊 Basic scan found ${models.length} valid models`);
   return models.sort((a, b) => a.name.localeCompare(b.name));
 }
 
@@ -133,11 +235,14 @@ async function validateModelDirectory(
 ): Promise<ModelInfo | null> {
   try {
     const files = await fs.readdir(dirPath);
+    console.log(`📄 Files in ${dirName}:`, files);
 
     // Look for .model3.json files
     const modelFiles = files.filter((file) => file.endsWith(".model3.json"));
+    console.log(`🎭 Model files found in ${dirName}:`, modelFiles);
 
     if (modelFiles.length === 0) {
+      console.log(`❌ No .model3.json files found in ${dirName}`);
       return null;
     }
 
@@ -153,15 +258,37 @@ async function validateModelDirectory(
         files.some((f) => f.toLowerCase().includes("motion"))
     );
 
+    const modelFilePath = path.join(dirPath, modelFiles[0]);
+    console.log(`📍 Model file path: ${modelFilePath}`);
+
+    // Check for CDI3 file using the enhanced discovery service
+    let hasCDI3 = false;
+    let cdi3File = undefined;
+    let cdi3Info = undefined;
+
+    try {
+      cdi3File = await CDI3DiscoveryService.findCDI3ForModel(modelFilePath);
+      if (cdi3File) {
+        hasCDI3 = true;
+        cdi3Info = await CDI3DiscoveryService.getCDI3Info(cdi3File);
+        console.log(`🎨 Found CDI3 for ${dirName}: ${cdi3File}`);
+      }
+    } catch (error) {
+      console.warn(`⚠️ CDI3 check failed for ${dirName}:`, error);
+    }
+
     return {
       name: dirName,
       directory: dirPath,
-      modelFile: path.join(dirPath, modelFiles[0]),
+      modelFile: modelFilePath,
       hasTextures,
       hasMotions,
+      hasCDI3,
+      cdi3File,
+      cdi3Info,
     };
   } catch (error) {
-    console.error(`Failed to validate model directory ${dirPath}:`, error);
+    console.error(`❌ Failed to validate model directory ${dirPath}:`, error);
     return null;
   }
 }
@@ -451,7 +578,10 @@ function setupIPC(): void {
   });
 
   ipcMain.handle("scan-models", async (): Promise<ModelInfo[]> => {
-    return scanForModels();
+    console.log('🔍 IPC: Scanning for models...');
+    const models = await scanForModels();
+    console.log(`📊 IPC: Returning ${models.length} models`);
+    return models;
   });
 
   ipcMain.handle("scan-backgrounds", async (): Promise<string[]> => {
@@ -468,9 +598,37 @@ function setupIPC(): void {
     await shell.openPath(backgroundsDir);
   });
 
+  // 🔧 CROSS-PLATFORM: Fixed model file URL generation with proper Windows support
   ipcMain.handle("get-model-file-url", (_event, modelFile: string): string => {
-    // Return file:// URL for the model file
-    return `file://${modelFile}`;
+    console.log(`🔗 Converting model file path to URL: ${modelFile}`);
+    
+    try {
+      // Verify the file exists before creating URL
+      const fileExists = fs.access(modelFile).then(() => true).catch(() => false);
+      
+      // Create proper cross-platform file URL
+      const fileURL = createCrossPlatformFileURL(modelFile);
+      
+      console.log(`✅ Generated file URL: ${fileURL}`);
+      return fileURL;
+    } catch (error) {
+      console.error(`❌ Failed to create file URL for: ${modelFile}`, error);
+      // Return the fallback URL even if there's an error
+      return createManualFileURL(modelFile);
+    }
+  });
+
+  // 🎨 CDI3 Integration: Add handlers for CDI3 functionality
+  ipcMain.handle("findCDI3ForModel", async (_event, modelPath: string) => {
+    try {
+      console.log(`🔍 IPC: Finding CDI3 for model: ${modelPath}`);
+      const result = await CDI3DiscoveryService.findCDI3ForModel(modelPath);
+      console.log(`📊 IPC: CDI3 result: ${result || 'none found'}`);
+      return result;
+    } catch (error) {
+      console.error('❌ IPC: Failed to find CDI3 for model:', error);
+      return null;
+    }
   });
 
   ipcMain.handle(
@@ -624,6 +782,27 @@ app.whenReady().then(async () => {
   // Ensure directories exist before creating window
   await ensureDirectoriesExist();
 
+  // 🎨 CDI3 Integration: Setup CDI3 handlers with models directory function
+  console.log('🎨 Setting up CDI3 integration...');
+  try {
+    setupCDI3Integration(getModelsDirectory);
+    console.log('✅ CDI3 integration setup complete');
+    
+    // Optional: Test CDI3 integration in development
+    if (process.env.NODE_ENV === "development") {
+      console.log('🧪 Testing CDI3 integration in development mode...');
+      setTimeout(async () => {
+        try {
+          await testCDI3Integration(getModelsDirectory());
+        } catch (error) {
+          console.warn('⚠️ CDI3 test failed (non-fatal):', error);
+        }
+      }, 2000);
+    }
+  } catch (error) {
+    console.error('❌ CDI3 integration setup failed (non-fatal):', error);
+  }
+
   // 🎤 NEW: Initialize microphone service first (lightweight, always available)
   console.log('🎤 Initializing microphone control service...');
   try {
@@ -637,7 +816,7 @@ app.whenReady().then(async () => {
   // 🚫 REMOVED: Automatic OBS initialization
   // OBS will be initialized only when explicitly requested via settings
 
-  console.log('✅ App initialized with microphone service (OBS on-demand)');
+  console.log('✅ App initialized with microphone service and CDI3 support (OBS on-demand)');
 
   // Create main window
   mainWindow = createWindow();
