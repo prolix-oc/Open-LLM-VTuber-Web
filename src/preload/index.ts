@@ -1,4 +1,4 @@
-// src/preload/index.ts - Updated with CDI3 Support and Cross-Platform Path Handling
+// src/preload/index.ts - Updated with Microphone Service Integration
 import { contextBridge, ipcRenderer } from 'electron';
 import { electronAPI } from '@electron-toolkit/preload';
 
@@ -65,27 +65,6 @@ export interface VADToggleResult {
   success: boolean;
   micEnabled: boolean;
   status: 'ON' | 'OFF';
-}
-
-// 🎨 CDI3 Integration Types
-export interface CDI3FileInfo {
-  name: string;
-  version: string;
-  parameterCount: number;
-  fileSize: number;
-  platform: string;
-}
-
-export interface EnhancedModelInfo {
-  name: string;
-  directory: string;
-  modelFile: string;
-  hasTextures: boolean;
-  hasMotions: boolean;
-  hasCDI3?: boolean;
-  cdi3File?: string;
-  cdi3Info?: CDI3FileInfo;
-  platform?: string;
 }
 
 // Whisper Types
@@ -167,7 +146,7 @@ const api = {
   getBackgroundsDirectory: (): Promise<string> => {
     return ipcRenderer.invoke('get-backgrounds-directory');
   },
-  scanModels: (): Promise<EnhancedModelInfo[]> => {
+  scanModels: (): Promise<any[]> => {
     return ipcRenderer.invoke('scan-models');
   },
   scanBackgrounds: (): Promise<string[]> => {
@@ -180,7 +159,6 @@ const api = {
     return ipcRenderer.invoke('open-backgrounds-directory');
   },
   getModelFileUrl: (modelFile: string): Promise<string> => {
-    console.log(`🔗 Preload: Requesting file URL for: ${modelFile}`);
     return ipcRenderer.invoke('get-model-file-url', modelFile);
   },
   getBackgroundBlob: (filename: string): Promise<string> => {
@@ -191,44 +169,6 @@ const api = {
   },
   createFileBlob: (filePath: string): Promise<string> => {
     return ipcRenderer.invoke('create-file-blob', filePath);
-  },
-
-  // 🎨 CDI3 Integration API
-  findCDI3ForModel: (modelPath: string): Promise<string | null> => {
-    console.log(`🔍 Preload: Finding CDI3 for model: ${modelPath}`);
-    return ipcRenderer.invoke('findCDI3ForModel', modelPath);
-  },
-  cdi3FindFiles: (pattern: string): Promise<string[]> => {
-    console.log(`🔍 Preload: Finding CDI3 files with pattern: ${pattern}`);
-    return ipcRenderer.invoke('cdi3:findFiles', pattern);
-  },
-  cdi3ReadFile: (filePath: string): Promise<any | null> => {
-    console.log(`📖 Preload: Reading CDI3 file: ${filePath}`);
-    return ipcRenderer.invoke('cdi3:readFile', filePath);
-  },
-  cdi3GetInfo: (filePath: string): Promise<CDI3FileInfo | null> => {
-    console.log(`ℹ️ Preload: Getting CDI3 info: ${filePath}`);
-    return ipcRenderer.invoke('cdi3:getInfo', filePath);
-  },
-  modelscanWithCDI3: (modelsDir: string): Promise<EnhancedModelInfo[]> => {
-    console.log(`🔍 Preload: Enhanced model scan with CDI3: ${modelsDir}`);
-    return ipcRenderer.invoke('models:scanWithCDI3', modelsDir);
-  },
-
-  // Generic file system operations (used by CDI3)
-  filesFind: (pattern: string): Promise<string[]> => {
-    console.log(`🔍 Preload: Finding files with pattern: ${pattern}`);
-    return ipcRenderer.invoke('files:find', pattern);
-  },
-  fsReadFile: (filePath: string, options?: { encoding?: string }): Promise<string | Buffer> => {
-    console.log(`📄 Preload: Reading file: ${filePath}`);
-    return ipcRenderer.invoke('fs:readFile', filePath, options);
-  },
-  fsExists: (filePath: string): Promise<boolean> => {
-    return ipcRenderer.invoke('fs:exists', filePath);
-  },
-  fsStat: (filePath: string): Promise<any> => {
-    return ipcRenderer.invoke('fs:stat', filePath);
   },
 
   // Whisper integration
@@ -246,9 +186,6 @@ const api = {
   },
   whisperGetModelsPath: (): Promise<string | null> => {
     return ipcRenderer.invoke('whisper:get-models-path');
-  },
-  whisperSetActiveStatus: (active: boolean): Promise<void> => {
-    return ipcRenderer.invoke('whisper:set-active-status', active);
   },
 
   // ============================================
@@ -328,9 +265,6 @@ const api = {
   obsUpdateSettings: (settings: Partial<OBSSettings>): Promise<OBSSettings> => {
     return ipcRenderer.invoke('obs:update-settings', settings);
   },
-  obsEnsureInitialized: (): Promise<{ success: boolean; error?: string }> => {
-    return ipcRenderer.invoke('obs:ensure-initialized');
-  },
 
   // OBS Server Control
   obsGetStatus: (): Promise<OBSStatus> => {
@@ -352,9 +286,6 @@ const api = {
   },
   obsGetBrowserSourceUrl: (width?: number, height?: number, transparent?: boolean): Promise<string> => {
     return ipcRenderer.invoke('obs:get-browser-source-url', width, height, transparent);
-  },
-  obsNotifyCanvasReady: (): Promise<void> => {
-    return ipcRenderer.invoke('obs:notify-canvas-ready');
   },
 
   // OBS Synchronization (one-way communication to main process)
@@ -411,7 +342,6 @@ if (process.contextIsolated) {
       transcribeWithWhisper: api.whisperTranscribe,
       openWhisperModelsDirectory: api.whisperOpenModelsDirectory,
       getModelsPath: api.whisperGetModelsPath,
-      setActiveStatus: api.whisperSetActiveStatus,
     });
 
     // VAD API for easy access to VAD functionality (legacy compatibility)
@@ -433,48 +363,8 @@ if (process.contextIsolated) {
       getStatusUrl: api.micServiceGetStatusUrl,
       ensureInitialized: api.micServiceEnsureInitialized,
     });
-
-    // 🎨 CDI3 API for easy access to CDI3 functionality
-    contextBridge.exposeInMainWorld('cdi3API', {
-      findCDI3ForModel: api.findCDI3ForModel,
-      findFiles: api.cdi3FindFiles,
-      readFile: api.cdi3ReadFile,
-      getInfo: api.cdi3GetInfo,
-      scanModelsWithCDI3: api.modelscanWithCDI3,
-      // File system utilities
-      filesFind: api.filesFind,
-      fsReadFile: api.fsReadFile,
-      fsExists: api.fsExists,
-      fsStat: api.fsStat,
-    });
-
-    // Enhanced OBS API
-    contextBridge.exposeInMainWorld('obsAPI', {
-      // Settings
-      getSettings: api.obsGetSettings,
-      updateSettings: api.obsUpdateSettings,
-      ensureInitialized: api.obsEnsureInitialized,
-      // Server control
-      getStatus: api.obsGetStatus,
-      startServer: api.obsStartServer,
-      stopServer: api.obsStopServer,
-      // Window management
-      openWindow: api.obsOpenWindow,
-      closeWindow: api.obsCloseWindow,
-      getBrowserSourceUrl: api.obsGetBrowserSourceUrl,
-      notifyCanvasReady: api.obsNotifyCanvasReady,
-      // Synchronization
-      syncModel: api.obsSyncModel,
-      syncMotion: api.obsSyncMotion,
-      syncExpression: api.obsSyncExpression,
-      syncAudio: api.obsSyncAudio,
-      // Event listeners
-      onServerStatusChanged: api.onOBSServerStatusChanged,
-      onClientConnected: api.onOBSClientConnected,
-      onClientDisconnected: api.onOBSClientDisconnected,
-    });
     
-    console.log('✅ Preload: All APIs exposed successfully, including CDI3, microphone service, VAD and OBS integration');
+    console.log('✅ Preload: All APIs exposed successfully, including microphone service, VAD and OBS integration');
   } catch (error) {
     console.error('❌ Preload: Failed to expose APIs:', error);
   }
@@ -492,7 +382,6 @@ if (process.contextIsolated) {
     transcribeWithWhisper: api.whisperTranscribe,
     openWhisperModelsDirectory: api.whisperOpenModelsDirectory,
     getModelsPath: api.whisperGetModelsPath,
-    setActiveStatus: api.whisperSetActiveStatus,
   };
 
   // VAD API for development mode (legacy compatibility)
@@ -516,42 +405,6 @@ if (process.contextIsolated) {
     getStatusUrl: api.micServiceGetStatusUrl,
     ensureInitialized: api.micServiceEnsureInitialized,
   };
-
-  // 🎨 CDI3 API for development mode
-  // @ts-ignore (define in dts)
-  window.cdi3API = {
-    findCDI3ForModel: api.findCDI3ForModel,
-    findFiles: api.cdi3FindFiles,
-    readFile: api.cdi3ReadFile,
-    getInfo: api.cdi3GetInfo,
-    scanModelsWithCDI3: api.modelscanWithCDI3,
-    filesFind: api.filesFind,
-    fsReadFile: api.fsReadFile,
-    fsExists: api.fsExists,
-    fsStat: api.fsStat,
-  };
-
-  // Enhanced OBS API for development mode
-  // @ts-ignore (define in dts)
-  window.obsAPI = {
-    getSettings: api.obsGetSettings,
-    updateSettings: api.obsUpdateSettings,
-    ensureInitialized: api.obsEnsureInitialized,
-    getStatus: api.obsGetStatus,
-    startServer: api.obsStartServer,
-    stopServer: api.obsStopServer,
-    openWindow: api.obsOpenWindow,
-    closeWindow: api.obsCloseWindow,
-    getBrowserSourceUrl: api.obsGetBrowserSourceUrl,
-    notifyCanvasReady: api.obsNotifyCanvasReady,
-    syncModel: api.obsSyncModel,
-    syncMotion: api.obsSyncMotion,
-    syncExpression: api.obsSyncExpression,
-    syncAudio: api.obsSyncAudio,
-    onServerStatusChanged: api.onOBSServerStatusChanged,
-    onClientConnected: api.onOBSClientConnected,
-    onClientDisconnected: api.onOBSClientDisconnected,
-  };
   
-  console.log('✅ Preload: All APIs attached to window, including CDI3, microphone service, VAD and OBS integration');
+  console.log('✅ Preload: All APIs attached to window, including microphone service, VAD and OBS integration');
 }

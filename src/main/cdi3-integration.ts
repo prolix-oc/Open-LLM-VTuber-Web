@@ -3,73 +3,62 @@ import { ipcMain } from 'electron';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { glob } from 'glob';
+import { CrossPlatformPathUtils } from './utils/cross-platform-paths';
 
 /**
- * 🔧 CROSS-PLATFORM: Enhanced path utilities for Windows compatibility
- */
-function normalizePath(filePath: string): string {
-  // Ensure paths use forward slashes for consistency
-  return path.normalize(filePath).replace(/\\/g, '/');
-}
-
-function createGlobPattern(basePath: string, pattern: string): string {
-  // Create glob patterns that work on both Windows and Unix
-  const normalizedBase = normalizePath(basePath);
-  const fullPattern = path.posix.join(normalizedBase, pattern);
-  console.log(`🔍 Created glob pattern: ${fullPattern} from base: ${basePath}, pattern: ${pattern}`);
-  return fullPattern;
-}
-
-/**
- * CDI3 File Discovery Service for Main Process with Windows Support
+ * Enhanced CDI3 File Discovery Service with cross-platform support
  */
 export class CDI3DiscoveryService {
   /**
-   * Find CDI3 files matching a pattern with cross-platform support
+   * Find CDI3 files matching a pattern with cross-platform compatibility
    */
   static async findCDI3Files(pattern: string): Promise<string[]> {
     try {
       console.log(`🔍 Searching for CDI3 files with pattern: ${pattern}`);
       
-      // Configure glob options for cross-platform compatibility
-      const globOptions = {
+      // Normalize the pattern for cross-platform compatibility
+      const normalizedPattern = CrossPlatformPathUtils.normalizePath(pattern);
+      console.log(`🔧 Normalized pattern: ${normalizedPattern}`);
+      
+      const files = await glob(normalizedPattern, {
         ignore: ['**/node_modules/**', '**/.*/**'],
         absolute: true,
         windowsPathsNoEscape: true, // Important for Windows paths
-        nonull: false,
-      };
+      });
 
-      const files = await glob(pattern, globOptions);
-      console.log(`📁 Glob found ${files.length} files matching pattern`);
-
-      // Filter for CDI3 files with improved detection
+      // Filter for CDI3 files with more robust matching
       const cdi3Files = files.filter(file => {
-        const ext = path.extname(file).toLowerCase();
+        const ext = CrossPlatformPathUtils.getFileExtension(file);
         const name = path.basename(file).toLowerCase();
         const isCDI3 = ext === '.json' && (
           name.includes('cdi3') || 
           name.includes('.cdi3.') ||
           name.startsWith('cdi3') ||
-          name.endsWith('.cdi3.json')
+          name.endsWith('.cdi3')
         );
         
         if (isCDI3) {
-          console.log(`✅ Found CDI3 file: ${file}`);
+          console.log(`📁 Found CDI3 file: ${file}`);
         }
         
         return isCDI3;
       });
 
-      console.log(`🎨 Found ${cdi3Files.length} CDI3 files matching pattern: ${pattern}`);
+      console.log(`✅ Found ${cdi3Files.length} CDI3 files matching pattern: ${pattern}`);
       return cdi3Files;
     } catch (error) {
       console.error('❌ Failed to find CDI3 files:', error);
+      console.error('🔍 Pattern debug info:', { 
+        originalPattern: pattern,
+        platform: process.platform,
+        cwd: process.cwd()
+      });
       return [];
     }
   }
 
   /**
-   * Find CDI3 file for a specific model directory with Windows support
+   * Find CDI3 file for a specific model directory with enhanced Windows support
    */
   static async findCDI3ForModel(modelPath: string): Promise<string | null> {
     try {
@@ -79,49 +68,51 @@ export class CDI3DiscoveryService {
       console.log(`🔍 Searching for CDI3 file in: ${modelDir}`);
       console.log(`🎭 Model name: ${modelName}`);
 
-      // Normalize the model directory path for cross-platform compatibility
-      const normalizedModelDir = normalizePath(modelDir);
+      // Validate directory exists first
+      const dirExists = await CrossPlatformPathUtils.validateFilePath(modelDir);
+      if (!dirExists) {
+        console.log(`❌ Model directory does not exist: ${modelDir}`);
+        return null;
+      }
 
-      // Common CDI3 file patterns with cross-platform support
-      const patterns = [
-        // Exact matches first
-        path.join(modelDir, `${modelName}.cdi3.json`),
-        path.join(modelDir, `${modelName}.cdi3`),
-        path.join(modelDir, 'model.cdi3.json'),
-        path.join(modelDir, 'parameters.cdi3.json'),
-        // Glob patterns for wildcards
-        createGlobPattern(modelDir, '*.cdi3.json'),
-        createGlobPattern(modelDir, '*.cdi3'),
-        createGlobPattern(modelDir, '**/cdi3*.json'),
-        createGlobPattern(modelDir, '**/*.cdi3.json'),
+      // Common CDI3 file patterns with cross-platform path handling
+      const basePatterns = [
+        `${modelName}.cdi3.json`,
+        `${modelName}.cdi3`,
+        'model.cdi3.json',
+        'parameters.cdi3.json',
+        '*.cdi3.json',
+        '*.cdi3',
+        'cdi3.json',
+        `${modelName}_cdi3.json`,
+        `${modelName}-cdi3.json`
       ];
+
+      const patterns = basePatterns.map(pattern => 
+        CrossPlatformPathUtils.createGlobPattern(modelDir, pattern)
+      );
+
+      console.log(`🔧 CDI3 search patterns:`, patterns);
 
       for (const pattern of patterns) {
         try {
           if (pattern.includes('*')) {
             // Use glob for wildcard patterns
-            console.log(`🔍 Trying glob pattern: ${pattern}`);
             const matches = await CDI3DiscoveryService.findCDI3Files(pattern);
             if (matches.length > 0) {
               console.log(`✅ Found CDI3 file via glob: ${matches[0]}`);
               return matches[0];
             }
           } else {
-            // Direct file check with cross-platform path normalization
-            const normalizedPattern = path.resolve(pattern);
-            console.log(`📄 Checking direct file: ${normalizedPattern}`);
-            
-            try {
-              await fs.access(normalizedPattern);
-              console.log(`✅ Found CDI3 file: ${normalizedPattern}`);
-              return normalizedPattern;
-            } catch (accessError) {
-              // File doesn't exist, continue to next pattern
-              console.log(`❌ File not found: ${normalizedPattern}`);
+            // Direct file check
+            const exists = await CrossPlatformPathUtils.validateFilePath(pattern);
+            if (exists) {
+              console.log(`✅ Found CDI3 file directly: ${pattern}`);
+              return pattern;
             }
           }
-        } catch (patternError) {
-          console.warn(`⚠️ Error checking pattern ${pattern}:`, patternError);
+        } catch (error) {
+          console.log(`⚠️ Pattern failed: ${pattern}`, error.message);
           continue;
         }
       }
@@ -130,66 +121,52 @@ export class CDI3DiscoveryService {
       return null;
     } catch (error) {
       console.error('❌ Failed to find CDI3 file for model:', error);
+      console.error('🔍 Model debug info:', CrossPlatformPathUtils.getDebugInfo(modelPath));
       return null;
     }
   }
 
   /**
-   * Validate and read CDI3 file with better error handling
+   * Validate and read CDI3 file with enhanced error handling
    */
   static async readCDI3File(filePath: string): Promise<any | null> {
     try {
       console.log(`📖 Reading CDI3 file: ${filePath}`);
       
-      // Normalize the file path for cross-platform compatibility
-      const normalizedPath = path.resolve(filePath);
+      // Validate file exists first
+      const exists = await CrossPlatformPathUtils.validateFilePath(filePath);
+      if (!exists) {
+        throw new Error(`CDI3 file does not exist: ${filePath}`);
+      }
+
+      const content = await fs.readFile(filePath, 'utf-8');
       
-      // Check if file exists first
-      try {
-        await fs.access(normalizedPath);
-      } catch (accessError) {
-        console.error(`❌ CDI3 file not accessible: ${normalizedPath}`);
-        return null;
+      if (!content.trim()) {
+        throw new Error('CDI3 file is empty');
       }
 
-      const content = await fs.readFile(normalizedPath, 'utf-8');
-      console.log(`📄 File content length: ${content.length} characters`);
-      
-      let data;
-      try {
-        data = JSON.parse(content);
-      } catch (parseError) {
-        console.error(`❌ Invalid JSON in CDI3 file ${normalizedPath}:`, parseError);
-        return null;
+      const data = JSON.parse(content);
+
+      // Enhanced validation
+      if (!data || typeof data !== 'object') {
+        throw new Error('Invalid CDI3 file: not a valid JSON object');
       }
 
-      // Basic validation with more detailed checking
-      if (!data) {
-        console.error(`❌ CDI3 file is empty or null: ${normalizedPath}`);
-        return null;
+      if (!data.Parameters || !Array.isArray(data.Parameters)) {
+        console.warn(`⚠️ CDI3 file missing Parameters array: ${filePath}`);
+        // Try alternative structure
+        if (data.parameters || data.PARAMETERS) {
+          data.Parameters = data.parameters || data.PARAMETERS;
+        } else {
+          throw new Error('Invalid CDI3 file: missing Parameters array');
+        }
       }
 
-      if (!data.Parameters) {
-        console.error(`❌ CDI3 file missing Parameters property: ${normalizedPath}`);
-        return null;
-      }
-
-      if (!Array.isArray(data.Parameters)) {
-        console.error(`❌ CDI3 file Parameters is not an array: ${normalizedPath}`);
-        return null;
-      }
-
-      console.log(`✅ Successfully read CDI3 file: ${normalizedPath} (${data.Parameters.length} parameters)`);
-      
-      // Log some basic info about the parameters for debugging
-      if (data.Parameters.length > 0) {
-        const sampleParam = data.Parameters[0];
-        console.log(`🔧 Sample parameter structure:`, Object.keys(sampleParam));
-      }
-      
+      console.log(`✅ Successfully read CDI3 file: ${filePath} (${data.Parameters.length} parameters)`);
       return data;
     } catch (error) {
       console.error(`❌ Failed to read CDI3 file ${filePath}:`, error);
+      console.error('🔍 File debug info:', CrossPlatformPathUtils.getDebugInfo(filePath));
       return null;
     }
   }
@@ -202,25 +179,31 @@ export class CDI3DiscoveryService {
     version: string;
     parameterCount: number;
     fileSize: number;
-    platform: string;
+    filePath: string;
+    normalizedPath: string;
   } | null> {
     try {
-      const normalizedPath = path.resolve(filePath);
-      
-      const stats = await fs.stat(normalizedPath);
-      const content = await fs.readFile(normalizedPath, 'utf-8');
+      const exists = await CrossPlatformPathUtils.validateFilePath(filePath);
+      if (!exists) {
+        throw new Error(`CDI3 file does not exist: ${filePath}`);
+      }
+
+      const stats = await fs.stat(filePath);
+      const content = await fs.readFile(filePath, 'utf-8');
       const data = JSON.parse(content);
 
-      const info = {
-        name: data.Name || path.basename(normalizedPath),
-        version: data.Version || 'Unknown',
-        parameterCount: data.Parameters ? data.Parameters.length : 0,
-        fileSize: stats.size,
-        platform: process.platform, // Include platform info for debugging
-      };
+      const parameterCount = data.Parameters 
+        ? data.Parameters.length 
+        : (data.parameters?.length || data.PARAMETERS?.length || 0);
 
-      console.log(`ℹ️ CDI3 info for ${normalizedPath}:`, info);
-      return info;
+      return {
+        name: data.Name || data.name || path.basename(filePath),
+        version: data.Version || data.version || 'Unknown',
+        parameterCount,
+        fileSize: stats.size,
+        filePath: filePath,
+        normalizedPath: CrossPlatformPathUtils.normalizePath(filePath),
+      };
     } catch (error) {
       console.error(`❌ Failed to get CDI3 info for ${filePath}:`, error);
       return null;
@@ -229,32 +212,34 @@ export class CDI3DiscoveryService {
 }
 
 /**
- * Enhanced Model Scanner with CDI3 Detection and Windows Support
+ * Enhanced Model Scanner with CDI3 Detection and Cross-Platform Support
  */
 export class EnhancedModelScanner {
   /**
-   * Scan models directory with CDI3 detection and cross-platform support
+   * Scan models directory with CDI3 detection using cross-platform paths
    */
   static async scanModelsWithCDI3(modelsDir: string): Promise<any[]> {
     try {
       console.log(`🔍 Scanning models directory with CDI3 detection: ${modelsDir}`);
-      console.log(`💻 Platform: ${process.platform}`);
       
-      // Normalize the models directory path
-      const normalizedModelsDir = path.resolve(modelsDir);
-      console.log(`📁 Normalized models directory: ${normalizedModelsDir}`);
+      // Validate directory exists
+      const dirExists = await CrossPlatformPathUtils.validateFilePath(modelsDir);
+      if (!dirExists) {
+        console.log(`❌ Models directory does not exist: ${modelsDir}`);
+        return [];
+      }
       
       // Create cross-platform glob pattern for model files
-      const modelPattern = createGlobPattern(normalizedModelsDir, '**/*.model3.json');
-      console.log(`🔍 Model search pattern: ${modelPattern}`);
+      const globPattern = CrossPlatformPathUtils.createGlobPattern(modelsDir, '**/*.model3.json');
+      console.log(`🔧 Model scan pattern: ${globPattern}`);
 
-      const modelFiles = await glob(modelPattern, {
+      const modelFiles = await glob(globPattern, {
         ignore: ['**/node_modules/**', '**/.*/**'],
-        windowsPathsNoEscape: true, // Important for Windows
         absolute: true,
+        windowsPathsNoEscape: true,
       });
 
-      console.log(`📄 Found ${modelFiles.length} model files`);
+      console.log(`📊 Found ${modelFiles.length} model files`);
 
       const models = [];
 
@@ -265,20 +250,19 @@ export class EnhancedModelScanner {
           
           console.log(`🎭 Processing model: ${modelName} at ${modelDir}`);
           
-          // Check for textures and motions with cross-platform glob patterns
-          const texturePattern = createGlobPattern(modelDir, '**/*.png');
-          const motionPattern = createGlobPattern(modelDir, '**/*.motion3.json');
-          
+          // Check for textures with cross-platform patterns
+          const texturePattern = CrossPlatformPathUtils.createGlobPattern(modelDir, '**/*.png');
           const textureFiles = await glob(texturePattern, { 
             absolute: false,
             windowsPathsNoEscape: true,
           });
+          
+          // Check for motions with cross-platform patterns  
+          const motionPattern = CrossPlatformPathUtils.createGlobPattern(modelDir, '**/*.motion3.json');
           const motionFiles = await glob(motionPattern, { 
             absolute: false,
             windowsPathsNoEscape: true,
           });
-          
-          console.log(`🖼️ Found ${textureFiles.length} textures, ${motionFiles.length} motions for ${modelName}`);
           
           // Check for CDI3 file
           const cdi3File = await CDI3DiscoveryService.findCDI3ForModel(modelFile);
@@ -286,7 +270,7 @@ export class EnhancedModelScanner {
           
           if (cdi3File) {
             cdi3Info = await CDI3DiscoveryService.getCDI3Info(cdi3File);
-            console.log(`🎨 CDI3 info for ${modelName}:`, cdi3Info);
+            console.log(`🎨 CDI3 enhanced model: ${modelName} (${cdi3Info?.parameterCount || 0} parameters)`);
           }
 
           const model = {
@@ -298,16 +282,13 @@ export class EnhancedModelScanner {
             hasCDI3: !!cdi3File,
             cdi3File: cdi3File,
             cdi3Info: cdi3Info,
-            platform: process.platform, // Include platform info for debugging
+            // Add normalized paths for debugging
+            normalizedDirectory: CrossPlatformPathUtils.normalizePath(modelDir),
+            normalizedModelFile: CrossPlatformPathUtils.normalizePath(modelFile),
           };
 
           models.push(model);
           
-          if (cdi3File) {
-            console.log(`✅ Model with CDI3: ${modelName} (${cdi3Info?.parameterCount || 0} parameters)`);
-          } else {
-            console.log(`📋 Model without CDI3: ${modelName}`);
-          }
         } catch (error) {
           console.error(`❌ Failed to process model ${modelFile}:`, error);
         }
@@ -315,9 +296,11 @@ export class EnhancedModelScanner {
 
       const cdi3Count = models.filter(m => m.hasCDI3).length;
       console.log(`✅ Scanned ${models.length} models, ${cdi3Count} with CDI3 enhancement`);
+      
       return models;
     } catch (error) {
       console.error('❌ Failed to scan models with CDI3:', error);
+      console.error('🔍 Directory debug info:', CrossPlatformPathUtils.getDebugInfo(modelsDir));
       return [];
     }
   }
@@ -332,48 +315,36 @@ export function setupCDI3IPCHandlers(): void {
   // CDI3 file discovery handlers
   ipcMain.handle('cdi3:findFiles', async (event, pattern: string) => {
     try {
-      console.log(`🔍 IPC: Finding CDI3 files with pattern: ${pattern}`);
-      const result = await CDI3DiscoveryService.findCDI3Files(pattern);
-      console.log(`📊 IPC: Found ${result.length} CDI3 files`);
-      return result;
+      return await CDI3DiscoveryService.findCDI3Files(pattern);
     } catch (error) {
-      console.error('❌ IPC: Failed to find CDI3 files:', error);
+      console.error('❌ CDI3 findFiles failed:', error);
       return [];
     }
   });
 
   ipcMain.handle('cdi3:findForModel', async (event, modelPath: string) => {
     try {
-      console.log(`🔍 IPC: Finding CDI3 for model: ${modelPath}`);
-      const result = await CDI3DiscoveryService.findCDI3ForModel(modelPath);
-      console.log(`📊 IPC: CDI3 result: ${result || 'none found'}`);
-      return result;
+      return await CDI3DiscoveryService.findCDI3ForModel(modelPath);
     } catch (error) {
-      console.error('❌ IPC: Failed to find CDI3 for model:', error);
+      console.error('❌ CDI3 findForModel failed:', error);
       return null;
     }
   });
 
   ipcMain.handle('cdi3:readFile', async (event, filePath: string) => {
     try {
-      console.log(`📖 IPC: Reading CDI3 file: ${filePath}`);
-      const result = await CDI3DiscoveryService.readCDI3File(filePath);
-      console.log(`📊 IPC: CDI3 file read result: ${result ? 'success' : 'failed'}`);
-      return result;
+      return await CDI3DiscoveryService.readCDI3File(filePath);
     } catch (error) {
-      console.error('❌ IPC: Failed to read CDI3 file:', error);
+      console.error('❌ CDI3 readFile failed:', error);
       return null;
     }
   });
 
   ipcMain.handle('cdi3:getInfo', async (event, filePath: string) => {
     try {
-      console.log(`ℹ️ IPC: Getting CDI3 info: ${filePath}`);
-      const result = await CDI3DiscoveryService.getCDI3Info(filePath);
-      console.log(`📊 IPC: CDI3 info result: ${result ? 'success' : 'failed'}`);
-      return result;
+      return await CDI3DiscoveryService.getCDI3Info(filePath);
     } catch (error) {
-      console.error('❌ IPC: Failed to get CDI3 info:', error);
+      console.error('❌ CDI3 getInfo failed:', error);
       return null;
     }
   });
@@ -381,82 +352,74 @@ export function setupCDI3IPCHandlers(): void {
   // Enhanced model scanning
   ipcMain.handle('models:scanWithCDI3', async (event, modelsDir: string) => {
     try {
-      console.log(`🔍 IPC: Scanning models with CDI3 in: ${modelsDir}`);
-      const result = await EnhancedModelScanner.scanModelsWithCDI3(modelsDir);
-      console.log(`📊 IPC: Scanned ${result.length} models with CDI3`);
-      return result;
+      return await EnhancedModelScanner.scanModelsWithCDI3(modelsDir);
     } catch (error) {
-      console.error('❌ IPC: Failed to scan models with CDI3:', error);
+      console.error('❌ Models scanWithCDI3 failed:', error);
       return [];
     }
   });
 
-  // Generic file pattern matching with Windows support
+  // Generic file pattern matching with cross-platform support
   ipcMain.handle('files:find', async (event, pattern: string) => {
     try {
-      console.log(`🔍 IPC: Finding files with pattern: ${pattern}`);
-      
-      const files = await glob(pattern, {
+      const normalizedPattern = CrossPlatformPathUtils.normalizePath(pattern);
+      const files = await glob(normalizedPattern, {
         ignore: ['**/node_modules/**', '**/.*/**'],
         absolute: true,
-        windowsPathsNoEscape: true, // Important for Windows
+        windowsPathsNoEscape: true,
       });
-      
-      console.log(`📊 IPC: Found ${files.length} files`);
       return files;
     } catch (error) {
-      console.error('❌ IPC: Failed to find files:', error);
+      console.error('❌ Files find failed:', error);
       return [];
     }
   });
 
-  // File reading with encoding support and better error handling
+  // Enhanced file reading with encoding support
   ipcMain.handle('fs:readFile', async (event, filePath: string, options?: { encoding?: string }) => {
     try {
-      const normalizedPath = path.resolve(filePath);
-      console.log(`📄 IPC: Reading file: ${normalizedPath}`);
+      const exists = await CrossPlatformPathUtils.validateFilePath(filePath);
+      if (!exists) {
+        throw new Error(`File does not exist: ${filePath}`);
+      }
       
-      const content = await fs.readFile(normalizedPath, options?.encoding as any || 'utf-8');
-      console.log(`✅ IPC: Successfully read file: ${normalizedPath}`);
+      const content = await fs.readFile(filePath, options?.encoding as any || 'utf-8');
       return content;
     } catch (error) {
-      console.error(`❌ IPC: Failed to read file ${filePath}:`, error);
+      console.error(`❌ Failed to read file ${filePath}:`, error);
       throw error;
     }
   });
 
-  // File existence check with normalized paths
+  // Enhanced file existence check
   ipcMain.handle('fs:exists', async (event, filePath: string) => {
     try {
-      const normalizedPath = path.resolve(filePath);
-      await fs.access(normalizedPath);
-      console.log(`✅ IPC: File exists: ${normalizedPath}`);
-      return true;
-    } catch {
-      console.log(`❌ IPC: File does not exist: ${filePath}`);
+      return await CrossPlatformPathUtils.validateFilePath(filePath);
+    } catch (error) {
+      console.error(`❌ Failed to check file existence ${filePath}:`, error);
       return false;
     }
   });
 
-  // Get file stats with normalized paths
+  // Enhanced file stats
   ipcMain.handle('fs:stat', async (event, filePath: string) => {
     try {
-      const normalizedPath = path.resolve(filePath);
-      const stats = await fs.stat(normalizedPath);
+      const exists = await CrossPlatformPathUtils.validateFilePath(filePath);
+      if (!exists) {
+        return null;
+      }
       
-      const result = {
+      const stats = await fs.stat(filePath);
+      return {
         size: stats.size,
         mtime: stats.mtime,
         ctime: stats.ctime,
         isFile: stats.isFile(),
         isDirectory: stats.isDirectory(),
-        platform: process.platform, // Include platform info
+        normalizedPath: CrossPlatformPathUtils.normalizePath(filePath),
       };
-      
-      console.log(`📊 IPC: File stats for ${normalizedPath}:`, result);
-      return result;
     } catch (error) {
-      console.error(`❌ IPC: Failed to get stats for ${filePath}:`, error);
+      console.error(`❌ Failed to get stats for ${filePath}:`, error);
       return null;
     }
   });
@@ -465,9 +428,9 @@ export function setupCDI3IPCHandlers(): void {
 }
 
 /**
- * Integration with existing model management with Windows support
+ * Integration with existing model management using cross-platform utilities
  */
-export function integrateCDI3WithExistingHandlers(getModelsDirectory: () => string): void {
+export function integrateCDI3WithExistingHandlers(): void {
   console.log('🔗 Integrating CDI3 with existing handlers...');
 
   // Enhance existing scanModels handler if it exists
@@ -480,16 +443,11 @@ export function integrateCDI3WithExistingHandlers(getModelsDirectory: () => stri
   ipcMain.removeAllListeners('models:scan');
   ipcMain.handle('models:scan', async (event) => {
     try {
-      console.log('🔍 IPC: Enhanced models:scan handler called');
-      const modelsDir = getModelsDirectory();
-      console.log(`📁 IPC: Models directory: ${modelsDir}`);
-      
-      const result = await EnhancedModelScanner.scanModelsWithCDI3(modelsDir);
-      console.log(`📊 IPC: Enhanced scan found ${result.length} models`);
-      
-      return result;
+      // Get models directory from cross-platform utilities
+      const { models: modelsDir } = CrossPlatformPathUtils.getEnspiraDirectories();
+      return await EnhancedModelScanner.scanModelsWithCDI3(modelsDir);
     } catch (error) {
-      console.error('❌ IPC: Enhanced models:scan failed:', error);
+      console.error('❌ Enhanced scanModels failed:', error);
       return [];
     }
   });
@@ -500,13 +458,12 @@ export function integrateCDI3WithExistingHandlers(getModelsDirectory: () => stri
 /**
  * Complete setup function to call from your main process
  */
-export function setupCDI3Integration(getModelsDirectory: () => string): void {
+export function setupCDI3Integration(): void {
   console.log('🚀 Setting up complete CDI3 integration...');
-  console.log(`💻 Platform: ${process.platform}`);
   
   try {
     setupCDI3IPCHandlers();
-    integrateCDI3WithExistingHandlers(getModelsDirectory);
+    integrateCDI3WithExistingHandlers();
     
     console.log('✅ CDI3 integration setup complete');
   } catch (error) {
@@ -516,7 +473,7 @@ export function setupCDI3Integration(getModelsDirectory: () => string): void {
 }
 
 /**
- * Enhanced CDI3 cache management for performance with Windows support
+ * Enhanced CDI3 cache management for performance with cross-platform support
  */
 export class CDI3Cache {
   private static cache = new Map<string, any>();
@@ -524,8 +481,8 @@ export class CDI3Cache {
   private static cacheTimestamps = new Map<string, number>();
 
   static async getCachedCDI3(filePath: string): Promise<any | null> {
-    // Normalize the path for consistent caching across platforms
-    const normalizedPath = path.resolve(filePath);
+    // Use normalized path as cache key for consistency
+    const normalizedPath = CrossPlatformPathUtils.normalizePath(filePath);
     const cached = this.cache.get(normalizedPath);
     const timestamp = this.cacheTimestamps.get(normalizedPath);
     
@@ -535,7 +492,7 @@ export class CDI3Cache {
     }
 
     // Cache miss or expired, read fresh data
-    const data = await CDI3DiscoveryService.readCDI3File(normalizedPath);
+    const data = await CDI3DiscoveryService.readCDI3File(filePath);
     if (data) {
       this.cache.set(normalizedPath, data);
       this.cacheTimestamps.set(normalizedPath, Date.now());
@@ -551,43 +508,19 @@ export class CDI3Cache {
     console.log('🧹 CDI3 cache cleared');
   }
 
-  static getCacheStats(): { size: number; keys: string[]; platform: string } {
+  static getCacheStats(): { size: number; keys: string[] } {
     return {
       size: this.cache.size,
       keys: Array.from(this.cache.keys()),
-      platform: process.platform,
     };
   }
-}
 
-/**
- * Utility function to test CDI3 functionality on different platforms
- */
-export async function testCDI3Integration(modelsDir: string): Promise<void> {
-  console.log('🧪 Testing CDI3 integration...');
-  console.log(`💻 Platform: ${process.platform}`);
-  console.log(`📁 Models directory: ${modelsDir}`);
-
-  try {
-    // Test model scanning
-    const models = await EnhancedModelScanner.scanModelsWithCDI3(modelsDir);
-    console.log(`✅ Model scanning test: Found ${models.length} models`);
-
-    // Test CDI3 file discovery for each model
-    for (const model of models.slice(0, 3)) { // Test first 3 models only
-      console.log(`🧪 Testing CDI3 discovery for: ${model.name}`);
-      const cdi3File = await CDI3DiscoveryService.findCDI3ForModel(model.modelFile);
-      if (cdi3File) {
-        console.log(`✅ CDI3 found: ${cdi3File}`);
-        const info = await CDI3DiscoveryService.getCDI3Info(cdi3File);
-        console.log(`📊 CDI3 info:`, info);
-      } else {
-        console.log(`ℹ️ No CDI3 found for: ${model.name}`);
-      }
+  static removeCacheEntry(filePath: string): boolean {
+    const normalizedPath = CrossPlatformPathUtils.normalizePath(filePath);
+    const removed = this.cache.delete(normalizedPath) || this.cacheTimestamps.delete(normalizedPath);
+    if (removed) {
+      console.log(`🗑️ Removed cache entry for: ${normalizedPath}`);
     }
-
-    console.log('✅ CDI3 integration test complete');
-  } catch (error) {
-    console.error('❌ CDI3 integration test failed:', error);
+    return removed;
   }
 }

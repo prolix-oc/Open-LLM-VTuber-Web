@@ -1,4 +1,4 @@
-// src/main/index.ts - Complete Integration with CDI3 and Cross-Platform Path Handling
+// src/main/index.ts - Updated with Cross-Platform Path Handling
 import {
   app,
   ipcMain,
@@ -33,14 +33,6 @@ import {
   initializeMicrophoneService,
   cleanupMicrophoneService
 } from "./microphone-service-manager";
-
-// 🎨 CDI3 Integration with Cross-Platform Support
-import {
-  setupCDI3Integration,
-  testCDI3Integration,
-  EnhancedModelScanner,
-  CDI3DiscoveryService,
-} from "./cdi3-integration";
 
 let mainWindow: BrowserWindow | null = null;
 let isQuitting = false;
@@ -116,9 +108,6 @@ interface ModelInfo {
   modelFile: string;
   hasTextures: boolean;
   hasMotions: boolean;
-  hasCDI3?: boolean;
-  cdi3File?: string;
-  cdi3Info?: any;
 }
 
 // 🧠 MEMORY OPTIMIZATION: Lazy OBS initialization function
@@ -164,47 +153,12 @@ async function ensureDirectoriesExist(): Promise<void> {
   }
 }
 
-// 🎨 Enhanced model scanning with CDI3 integration
 async function scanForModels(): Promise<ModelInfo[]> {
-  const modelsDir = getModelsDirectory();
-  
-  try {
-    console.log(`🔍 Scanning for models with CDI3 enhancement: ${modelsDir}`);
-    
-    // Use the enhanced CDI3 scanner
-    const enhancedModels = await EnhancedModelScanner.scanModelsWithCDI3(modelsDir);
-    
-    // Convert enhanced model format to expected ModelInfo format
-    const models: ModelInfo[] = enhancedModels.map(model => ({
-      name: model.name,
-      directory: model.directory,
-      modelFile: model.modelFile,
-      hasTextures: model.hasTextures,
-      hasMotions: model.hasMotions,
-      hasCDI3: model.hasCDI3,
-      cdi3File: model.cdi3File,
-      cdi3Info: model.cdi3Info,
-    }));
-
-    const cdi3Count = models.filter(m => m.hasCDI3).length;
-    console.log(`✅ Enhanced scan complete: ${models.length} total models, ${cdi3Count} with CDI3`);
-    
-    return models.sort((a, b) => a.name.localeCompare(b.name));
-  } catch (error) {
-    console.error("❌ Enhanced model scan failed, falling back to basic scan:", error);
-    
-    // Fallback to basic scanning if enhanced scanning fails
-    return await basicScanForModels();
-  }
-}
-
-// Basic model scanning as fallback
-async function basicScanForModels(): Promise<ModelInfo[]> {
   const modelsDir = getModelsDirectory();
   const models: ModelInfo[] = [];
 
   try {
-    console.log(`🔍 Basic scanning models directory: ${modelsDir}`);
+    console.log(`🔍 Scanning models directory: ${modelsDir}`);
     const entries = await fs.readdir(modelsDir, { withFileTypes: true });
 
     for (const entry of entries) {
@@ -225,7 +179,7 @@ async function basicScanForModels(): Promise<ModelInfo[]> {
     console.error("❌ Failed to scan models directory:", error);
   }
 
-  console.log(`📊 Basic scan found ${models.length} valid models`);
+  console.log(`📊 Found ${models.length} valid models`);
   return models.sort((a, b) => a.name.localeCompare(b.name));
 }
 
@@ -261,31 +215,12 @@ async function validateModelDirectory(
     const modelFilePath = path.join(dirPath, modelFiles[0]);
     console.log(`📍 Model file path: ${modelFilePath}`);
 
-    // Check for CDI3 file using the enhanced discovery service
-    let hasCDI3 = false;
-    let cdi3File = undefined;
-    let cdi3Info = undefined;
-
-    try {
-      cdi3File = await CDI3DiscoveryService.findCDI3ForModel(modelFilePath);
-      if (cdi3File) {
-        hasCDI3 = true;
-        cdi3Info = await CDI3DiscoveryService.getCDI3Info(cdi3File);
-        console.log(`🎨 Found CDI3 for ${dirName}: ${cdi3File}`);
-      }
-    } catch (error) {
-      console.warn(`⚠️ CDI3 check failed for ${dirName}:`, error);
-    }
-
     return {
       name: dirName,
       directory: dirPath,
       modelFile: modelFilePath,
       hasTextures,
       hasMotions,
-      hasCDI3,
-      cdi3File,
-      cdi3Info,
     };
   } catch (error) {
     console.error(`❌ Failed to validate model directory ${dirPath}:`, error);
@@ -618,19 +553,6 @@ function setupIPC(): void {
     }
   });
 
-  // 🎨 CDI3 Integration: Add handlers for CDI3 functionality
-  ipcMain.handle("findCDI3ForModel", async (_event, modelPath: string) => {
-    try {
-      console.log(`🔍 IPC: Finding CDI3 for model: ${modelPath}`);
-      const result = await CDI3DiscoveryService.findCDI3ForModel(modelPath);
-      console.log(`📊 IPC: CDI3 result: ${result || 'none found'}`);
-      return result;
-    } catch (error) {
-      console.error('❌ IPC: Failed to find CDI3 for model:', error);
-      return null;
-    }
-  });
-
   ipcMain.handle(
     "get-background-blob",
     async (_event, filename: string): Promise<string> => {
@@ -782,27 +704,6 @@ app.whenReady().then(async () => {
   // Ensure directories exist before creating window
   await ensureDirectoriesExist();
 
-  // 🎨 CDI3 Integration: Setup CDI3 handlers with models directory function
-  console.log('🎨 Setting up CDI3 integration...');
-  try {
-    setupCDI3Integration(getModelsDirectory);
-    console.log('✅ CDI3 integration setup complete');
-    
-    // Optional: Test CDI3 integration in development
-    if (process.env.NODE_ENV === "development") {
-      console.log('🧪 Testing CDI3 integration in development mode...');
-      setTimeout(async () => {
-        try {
-          await testCDI3Integration(getModelsDirectory());
-        } catch (error) {
-          console.warn('⚠️ CDI3 test failed (non-fatal):', error);
-        }
-      }, 2000);
-    }
-  } catch (error) {
-    console.error('❌ CDI3 integration setup failed (non-fatal):', error);
-  }
-
   // 🎤 NEW: Initialize microphone service first (lightweight, always available)
   console.log('🎤 Initializing microphone control service...');
   try {
@@ -816,7 +717,7 @@ app.whenReady().then(async () => {
   // 🚫 REMOVED: Automatic OBS initialization
   // OBS will be initialized only when explicitly requested via settings
 
-  console.log('✅ App initialized with microphone service and CDI3 support (OBS on-demand)');
+  console.log('✅ App initialized with microphone service (OBS on-demand)');
 
   // Create main window
   mainWindow = createWindow();
